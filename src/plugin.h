@@ -1,6 +1,7 @@
 /*
  * TeamSpeak Ducking plugin
  *
+ * Author: Thorsten Weinz (philosound@gmail.com)
  */
 
 #pragma once
