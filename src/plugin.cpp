@@ -117,7 +117,7 @@ void ts3plugin_registerPluginID(const char* id)
 	/*const size_t sz = strlen(id) + 1;
 	pluginID = (char*)malloc(sz * sizeof(char));
 	_strcpy(pluginID, sz, id);*/  /* The id buffer will invalidate after exiting this function */
-	plugin.swap(std::make_unique<Plugin>(id));
+	plugin = std::make_unique<Plugin>(id);
 }
 
 /*
