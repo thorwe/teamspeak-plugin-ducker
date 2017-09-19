@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QtWidgets/QDialog>
-#include <QtWidgets/QPushbutton>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QLabel>
 
 #include "volume_widgets/fader_vertical.h"
