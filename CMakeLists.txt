@@ -58,3 +58,4 @@ include(deps/teamspeak-plugin-qt-common/CMakeLists.txt)
 
 add_library(Ducker SHARED
     ${PLUGIN_SRC} ${TS_QT_CORE} ${TS_QT_VOLUME})
+target_compile_features(Ducker PRIVATE cxx_std_17)

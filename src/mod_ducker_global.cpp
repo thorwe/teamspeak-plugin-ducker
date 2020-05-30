@@ -261,18 +261,20 @@ void Ducker_Global::onRunningStateChanged(bool value)
         {
             for (auto server = servers; *server; ++server)
             {
-                int status;
-                if (ts3Functions.getConnectionStatus(*server, &status) != ERROR_ok)
-                    continue;
+                {
+                    int status;
+                    if (ts3Functions.getConnectionStatus(*server, &status) != ERROR_ok)
+                        continue;
 
-                if (status != STATUS_CONNECTION_ESTABLISHED)
-                    continue;
+                    if (status != STATUS_CONNECTION_ESTABLISHED)
+                        continue;
+                }
 
                 unsigned int error;
 
                 // Get My Id on this handler
                 anyID my_id;
-                if ((error = ts3Functions.getClientID(*server,&my_id)) != ERROR_ok)
+                if ((error = ts3Functions.getClientID(*server, &my_id)) != ERROR_ok)
                 {
                     Error("onRunningStateChanged",*server,error);
                     continue;

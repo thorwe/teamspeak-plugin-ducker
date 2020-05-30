@@ -54,7 +54,7 @@ protected:
 private:
     bool m_active = false;
 
-    float value() { return m_value; }
+    float value() const { return m_value; }
     float m_value = 0.0f;
 
     Talkers& m_talkers;
