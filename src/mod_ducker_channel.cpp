@@ -10,14 +10,16 @@
 #include "core/plugin_base.h"
 #include "core/ts_helpers_qt.h"
 
+#include <gsl/span>
+
+using namespace thorwe;
+
 Ducker_Channel::Ducker_Channel(Plugin_Base& plugin)
 	: m_talkers(plugin.talkers())
 {
 	setObjectName(QStringLiteral("ChannelDucker"));
     m_isPrintEnabled = false;
     setParent(&plugin);
-
-    vols = new Volumes(this, Volumes::Volume_Type::DUCKER);
 }
 
 float Ducker_Channel::getValue() const
@@ -41,7 +43,7 @@ void Ducker_Channel::onRunningStateChanged(bool value)
 {
     if (value)
     {
-        connect(&m_talkers, &Talkers::ConnectStatusChanged, vols, &Volumes::onConnectStatusChanged, Qt::UniqueConnection);
+        connect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Channel::onConnectStatusChanged, Qt::UniqueConnection);
 
         uint64* servers;
         if (ts3Functions.getServerConnectionHandlerList(&servers) == ERROR_ok)
@@ -81,9 +83,9 @@ void Ducker_Channel::onRunningStateChanged(bool value)
     }
     else
     {
-        disconnect(&m_talkers, &Talkers::ConnectStatusChanged, vols, &Volumes::onConnectStatusChanged);
+        disconnect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Channel::onConnectStatusChanged);
         setActive(false);
-        vols->RemoveVolumes();
+        m_vols.delete_items();
     }
     Log(QString("enabled: %1").arg((value)?"true":"false"));
 }
@@ -100,7 +102,10 @@ void Ducker_Channel::setValue(float val)
 
     m_value = val;
     Log(QString("setValue: %1").arg(m_value));
-    emit valueSet(m_value);
+    m_vols.do_for_each([val](DspVolumeDucker* volume) -> void
+    {
+        volume->set_gain_desired(val);
+    });
 }
 
 void Ducker_Channel::setDuckingReverse(bool val)
@@ -138,13 +143,13 @@ void Ducker_Channel::setDuckPrioritySpeakers(bool val)
 //    cfg.setValue("ducking_reverse", isTargetOtherTabs());
 //}
 
-void Ducker_Channel::setHomeId(uint64 server_connection_handler_id)
+void Ducker_Channel::setHomeId(uint64 connection_id)
 {
-    if (server_connection_handler_id == m_homeId)
+    if (connection_id == m_homeId)
         return;
 
     uint64 oldHomeId = m_homeId;
-    m_homeId = server_connection_handler_id;
+    m_homeId = connection_id;
     if (m_homeId == 0)
         return;
 
@@ -156,42 +161,48 @@ void Ducker_Channel::setHomeId(uint64 server_connection_handler_id)
     if (map.contains(oldHomeId))
     {
         auto list = map.values(oldHomeId);
+        const auto set_blocked = !m_isTargetOtherTabs;
         for (int i = 0; i<list.size(); ++i)
         {
-            auto vol = qobject_cast<DspVolumeDucker*>(vols->GetVolume(oldHomeId,list[i]));
-            if (vol)
-                vol->setDuckBlocked(!m_isTargetOtherTabs);
+            m_vols.do_for([&set_blocked](DspVolumeDucker* volume)
+            {
+                volume->set_duck_blocked(set_blocked);
+            }, oldHomeId, list[i]);
         }
     }
 
     if (map.contains(m_homeId))
     {
         auto list = map.values(m_homeId);
+        const auto set_blocked = m_isTargetOtherTabs;
         for (int i = 0; i<list.size(); ++i)
         {
-            auto vol = qobject_cast<DspVolumeDucker*>(vols->GetVolume(m_homeId,list[i]));
-            if (vol)
-                vol->setDuckBlocked(m_isTargetOtherTabs);
+            m_vols.do_for([&set_blocked](DspVolumeDucker* volume)
+            {
+                volume->set_duck_blocked(set_blocked);
+            }, oldHomeId, list[i]);
         }
     }
 
     Log(QString("setHomeId: %1").arg(m_homeId));
 }
 
-void Ducker_Channel::setActive(bool value)
+void Ducker_Channel::setActive(bool val)
 {
-    if (value == m_isActive)
+    if (val == m_isActive)
         return;
 
-    m_isActive = value;
-//    Log(QString("setActive: %1").arg((value)?"true":"false"),LogLevel_DEBUG);
-    emit activeSet(m_isActive);
+    m_isActive = val;
+    m_vols.do_for_each([val](DspVolumeDucker* volume)
+    {
+        volume->set_gain_adjustment(val);
+    });
 }
 
 // ts event handlers
 
 //! Have a volume object for everyone in the clients channel
-void Ducker_Channel::onClientMoveEvent(uint64 server_connection_handler_id, anyID client_id, uint64 oldChannelID, uint64 newChannelID, int visibility, anyID myID)
+void Ducker_Channel::onClientMoveEvent(uint64 connection_id, anyID client_id, uint64 oldChannelID, uint64 newChannelID, int visibility, anyID myID)
 {
     Q_UNUSED(visibility);
 
@@ -206,12 +217,12 @@ void Ducker_Channel::onClientMoveEvent(uint64 server_connection_handler_id, anyI
 //            return;
 
 //        Log("Refreshing volumes",LogLevel_DEBUG);
-        vols->RemoveVolumes(server_connection_handler_id);
+        m_vols.delete_items(connection_id);
 
         // Get Channel Client List
         anyID* clients;
-        if ((error = ts3Functions.getChannelClientList(server_connection_handler_id, newChannelID, &clients)) != ERROR_ok)
-            Error("(onClientMoveEvent) Error getting Channel Client List", server_connection_handler_id, error);
+        if ((error = ts3Functions.getChannelClientList(connection_id, newChannelID, &clients)) != ERROR_ok)
+            Error("(onClientMoveEvent) Error getting Channel Client List", connection_id, error);
         else
         {
             // for every client insert volume
@@ -220,7 +231,7 @@ void Ducker_Channel::onClientMoveEvent(uint64 server_connection_handler_id, anyI
                 if (clients[i] == myID)
                     continue;
 
-                AddDuckerVolume(server_connection_handler_id,clients[i]);
+                AddDuckerVolume(connection_id,clients[i]);
             }
         }
     }
@@ -228,19 +239,19 @@ void Ducker_Channel::onClientMoveEvent(uint64 server_connection_handler_id, anyI
     {
         // Get My channel on this handler
         uint64 channelID;
-        if((error = ts3Functions.getChannelOfClient(server_connection_handler_id,myID,&channelID)) != ERROR_ok)
-            Error(QString("(onClientMoveEvent) Error getting my Client Channel Id (client_id: %1)").arg(client_id), server_connection_handler_id, error);
+        if((error = ts3Functions.getChannelOfClient(connection_id, myID, &channelID)) != ERROR_ok)
+            Error(QString("(onClientMoveEvent) Error getting my Client Channel Id (client_id: %1)").arg(client_id), connection_id, error);
         else
         {
             if (channelID == oldChannelID)      // left
-                vols->RemoveVolume(server_connection_handler_id,client_id);
+                m_vols.delete_item(connection_id, client_id);
             else if (channelID == newChannelID) // joined
-                AddDuckerVolume(server_connection_handler_id,client_id);
+                AddDuckerVolume(connection_id, client_id);
         }
     }
 }
 
-bool Ducker_Channel::onTalkStatusChanged(uint64 server_connection_handler_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
+bool Ducker_Channel::onTalkStatusChanged(uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
 {
     if (!isRunning())
         return false;
@@ -251,7 +262,7 @@ bool Ducker_Channel::onTalkStatusChanged(uint64 server_connection_handler_id, in
     // Compute if this change causes a ducking change
     if ((!isActive()) && (status == STATUS_TALKING))
     {
-        if ((is_received_whisper) || (!m_isTargetOtherTabs && (server_connection_handler_id != m_homeId)) || (m_isTargetOtherTabs && (server_connection_handler_id == m_homeId)))
+        if ((is_received_whisper) || (!m_isTargetOtherTabs && (connection_id != m_homeId)) || (m_isTargetOtherTabs && (connection_id == m_homeId)))
             setActive(true);
     }
     else if (isActive() && (status == STATUS_NOT_TALKING))
@@ -262,20 +273,20 @@ bool Ducker_Channel::onTalkStatusChanged(uint64 server_connection_handler_id, in
 
     if (((status == STATUS_TALKING) || (status == STATUS_NOT_TALKING)))
     {
-        auto vol = qobject_cast<DspVolumeDucker*>(vols->GetVolume(server_connection_handler_id, client_id));
-        if (!vol)
-            return false;
-
-        const auto is_trigger = (m_isTargetOtherTabs && (server_connection_handler_id == m_homeId)) || (!m_isTargetOtherTabs && (server_connection_handler_id != m_homeId));
+        const auto is_trigger = (m_isTargetOtherTabs && (connection_id == m_homeId)) || (!m_isTargetOtherTabs && (connection_id != m_homeId));
 
         //non ideal i guess
         unsigned int error;
         int is_priority_speaker_duck = 0;
-        if ((!m_duck_priority_speakers) && (status == STATUS_TALKING) && ((error = ts3Functions.getClientVariableAsInt(server_connection_handler_id, client_id, CLIENT_IS_PRIORITY_SPEAKER, &is_priority_speaker_duck)) != ERROR_ok))
-            Error("(onTalkStatusChangeEvent)", server_connection_handler_id, error);
+        if ((!m_duck_priority_speakers) && (status == STATUS_TALKING) && ((error = ts3Functions.getClientVariableAsInt(connection_id, client_id, CLIENT_IS_PRIORITY_SPEAKER, &is_priority_speaker_duck)) != ERROR_ok))
+            Error("(onTalkStatusChangeEvent)", connection_id, error);
 
-        vol->setDuckBlocked(is_trigger || ((is_received_whisper || (is_priority_speaker_duck)) && (status == STATUS_TALKING)));
-        vol->setProcessing(status == STATUS_TALKING);
+        m_vols.do_for([is_trigger, is_received_whisper, is_priority_speaker_duck, status](DspVolumeDucker* volume)
+        {
+            volume->set_duck_blocked(is_trigger || ((is_received_whisper || (is_priority_speaker_duck)) && (status == STATUS_TALKING)));
+            volume->set_processing(status == STATUS_TALKING);
+        }, connection_id, client_id);
+        
         return ((status == STATUS_TALKING) && !(is_received_whisper || is_priority_speaker_duck));
     }
     return false;
@@ -284,46 +295,43 @@ bool Ducker_Channel::onTalkStatusChanged(uint64 server_connection_handler_id, in
 //! Routes the arguments of the event to the corresponding volume object
 /*!
  * \brief Ducker_Channel::onEditPlaybackVoiceDataEvent pre-processing voice event
- * \param server_connection_handler_id the connection id of the server
+ * \param connection_id the connection id of the server
  * \param client_id the client-side runtime-id of the sender
  * \param samples the sample array to manipulate
  * \param sampleCount amount of samples in the array
  * \param channels amount of channels
  */
-void Ducker_Channel::onEditPlaybackVoiceDataEvent(uint64 server_connection_handler_id, anyID client_id, short *samples, int frame_count, int channels)
+void Ducker_Channel::onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
 {
     if (!(isRunning()))
         return;
 
-    if (((!m_isTargetOtherTabs) && (server_connection_handler_id != m_homeId)) || ((m_isTargetOtherTabs) && (server_connection_handler_id == m_homeId)))
+    if (((!m_isTargetOtherTabs) && (connection_id != m_homeId)) || ((m_isTargetOtherTabs) && (connection_id == m_homeId)))
         return;
 
-    auto vol = qobject_cast<DspVolumeDucker*>(vols->GetVolume(server_connection_handler_id, client_id));
-    if (vol == 0)
-        return;
-
-    //sampleCount = sampleCount * channels;
-    vol->process(samples, frame_count, channels);
+    auto samples_ = gsl::span<int16_t>{samples, static_cast<size_t>(frame_count * channels)};
+    m_vols.do_for([samples_, channels](DspVolumeDucker* volume)
+    {
+        volume->process(samples_, channels);
+    }, connection_id, client_id);
 }
 
 //! Create and add a Volume object to the ServerChannelVolumes map
 /*!
  * \brief Ducker_Channel::AddDuckerVolume Helper function
- * \param server_connection_handler_id the connection id of the server
+ * \param connection_id the connection id of the server
  * \param client_id the client id
  * \return a volume object
  */
-DspVolumeDucker* Ducker_Channel::AddDuckerVolume(uint64 server_connection_handler_id, anyID client_id)
+DspVolumeDucker* Ducker_Channel::AddDuckerVolume(uint64 connection_id, anyID client_id)
 {
-    auto vol = qobject_cast<DspVolumeDucker*>(vols->AddVolume(server_connection_handler_id,client_id));
-    if (vol != 0)
+    auto result = m_vols.add_volume(connection_id, client_id);
+    auto* vol = result.first;
+    if (vol)
     {
-        vol->setGainDesired(m_value);
-        connect(this, &Ducker_Channel::valueSet, vol, &DspVolumeDucker::setGainDesired, Qt::DirectConnection);
-        vol->setGainAdjustment(m_isActive);
-        connect(this, &Ducker_Channel::activeSet, vol, &DspVolumeDucker::setGainAdjustment, Qt::DirectConnection);
+        vol->set_gain_desired(m_value);
+        vol->set_gain_adjustment(m_isActive);
     }
-//    Log(QString("Ducker: Added %1 to ServerChannelVolumes.").arg(client_id),server_connection_handler_id,LogLevel_DEBUG);
     return vol;
 }
 
@@ -349,4 +357,9 @@ void Ducker_Channel::UpdateActive()
         }
     }
     setActive(is_active);
+}
+
+void Ducker_Channel::onConnectStatusChanged(uint64 connection_id, int new_status, unsigned int error_number)
+{
+    m_vols.onConnectStatusChanged(connection_id, new_status, error_number);
 }

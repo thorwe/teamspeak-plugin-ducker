@@ -20,17 +20,13 @@
 
 #include "plugin_qt.h"
 
+#include <cstdlib>
+
 struct TS3Functions ts3Functions;
 
 std::unique_ptr<Plugin> plugin;
 
-/*#ifdef _WIN32
-#define _strcpy(dest, destSize, src) strcpy_s(dest, destSize, src)
-#define snprintf sprintf_s
-#else
-#define _strcpy(dest, destSize, src) { strncpy(dest, src, destSize-1); dest[destSize-1] = '\0'; }
-#endif
-
+/*
 #define PATH_BUFSIZE 512
 #define COMMAND_BUFSIZE 128
 //#define INFODATA_BUFSIZE 128
@@ -38,10 +34,7 @@ std::unique_ptr<Plugin> plugin;
 #define CHANNELINFO_BUFSIZE 512
 #define RETURNCODE_BUFSIZE 128
 #define REQUESTCLIENTMOVERETURNCODES_SLOTS 5
-
-#define PLUGIN_THREAD_TIMEOUT 1000
-
-#define TIMER_MSEC 10000*/
+*/
 
 /*********************************** Required functions ************************************/
 /*
@@ -214,6 +207,7 @@ void ts3plugin_onTalkStatusChangeEvent(uint64 serverConnectionHandlerID, int sta
 	plugin->onTalkStatusChangeEvent(serverConnectionHandlerID, status, isReceivedWhisper, clientID);
 }
 
+// sample count means frames here
 void ts3plugin_onEditPlaybackVoiceDataEvent(uint64 serverConnectionHandlerID, anyID clientID, short* samples, int sampleCount, int channels)
 {
 	plugin->onEditPlaybackVoiceDataEvent(serverConnectionHandlerID, clientID, samples, sampleCount, channels);

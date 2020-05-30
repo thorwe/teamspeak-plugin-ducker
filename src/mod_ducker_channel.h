@@ -7,6 +7,8 @@
 #include "volume/dsp_volume_ducker.h"
 #include "core/talkers.h"
 
+#include <memory>
+
 class Plugin_Base;
 
 class Ducker_Channel : public Module, public TalkInterface
@@ -56,7 +58,7 @@ private:
     bool m_duck_priority_speakers = false;
 
 	Talkers& m_talkers;
-    Volumes* vols;
+    thorwe::volume::Volumes<DspVolumeDucker> m_vols;
 
     DspVolumeDucker* AddDuckerVolume(uint64 server_connection_handler_id, anyID client_id);
     void UpdateActive();
@@ -69,6 +71,8 @@ public slots:
     void setValue(float);
     void setDuckingReverse(bool);
     void setDuckPrioritySpeakers(bool);
+
+    void onConnectStatusChanged(uint64 connection_id, int new_status, unsigned int error_number);
 
 protected:
     void onRunningStateChanged(bool);
