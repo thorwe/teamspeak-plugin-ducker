@@ -126,13 +126,13 @@ void SettingsDuck::saveSettings(int r)
     if (mP_ducker_G)
     {
         cfg.beginGroup("ducker_global");
-        cfg.setValue("enabled", mP_ducker_G.data()->isEnabled());
+        cfg.setValue("enabled", mP_ducker_G.data()->enabled());
         cfg.setValue("value", mP_ducker_G.data()->getValue());
         cfg.endGroup();
     }
     if (mP_ducker_C)
     {
-        cfg.setValue("ducking_enabled", mP_ducker_C.data()->isEnabled());
+        cfg.setValue("ducking_enabled", mP_ducker_C.data()->enabled());
         cfg.setValue("ducking_value", mP_ducker_C.data()->getValue());
         cfg.setValue("ducking_reverse", mP_ducker_C.data()->isTargetOtherTabs());
         cfg.setValue("ducking_PS", mP_ducker_C.data()->isDuckPrioritySpeakers());

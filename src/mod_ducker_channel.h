@@ -2,7 +2,7 @@
 
 #include <QtCore/QObject>
 #include "teamspeak/public_definitions.h"
-#include "core/module.h"
+#include "core/module_qt.h"
 #include "volume/volumes.h"
 #include "volume/dsp_volume_ducker.h"
 #include "core/talkers.h"
@@ -11,7 +11,7 @@
 
 class Plugin_Base;
 
-class Ducker_Channel : public Module, public TalkInterface
+class Ducker_Channel : public Module_Qt, public TalkInterface
 {
     Q_OBJECT
     Q_INTERFACES(TalkInterface)

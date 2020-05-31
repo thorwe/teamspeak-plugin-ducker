@@ -18,7 +18,6 @@ Ducker_Channel::Ducker_Channel(Plugin_Base& plugin)
 	: m_talkers(plugin.talkers())
 {
 	setObjectName(QStringLiteral("ChannelDucker"));
-    m_isPrintEnabled = false;
     setParent(&plugin);
 }
 
@@ -114,7 +113,7 @@ void Ducker_Channel::setDuckingReverse(bool val)
         return;
 
     m_isTargetOtherTabs = val;
-    if (isRunning())  //since everything needs to be re-evaluated might as well toggle off/on
+    if (running())  //since everything needs to be re-evaluated might as well toggle off/on
     {
         onRunningStateChanged(false); //setEnabled would trigger signal
         onRunningStateChanged(true);
@@ -127,7 +126,7 @@ void Ducker_Channel::setDuckPrioritySpeakers(bool val)
     if (val == m_duck_priority_speakers)
         return;
 
-    if (isRunning())  //since everything needs to be re-evaluated might as well toggle off/on
+    if (running())  //since everything needs to be re-evaluated might as well toggle off/on
     {
         onRunningStateChanged(false); //setEnabled would trigger signal
         onRunningStateChanged(true);
@@ -253,7 +252,7 @@ void Ducker_Channel::onClientMoveEvent(uint64 connection_id, anyID client_id, ui
 
 bool Ducker_Channel::onTalkStatusChanged(uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
 {
-    if (!isRunning())
+    if (!running())
         return false;
 
     if (is_me && !m_isTargetOtherTabs)
@@ -303,7 +302,7 @@ bool Ducker_Channel::onTalkStatusChanged(uint64 connection_id, int status, bool 
  */
 void Ducker_Channel::onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
 {
-    if (!(isRunning()))
+    if (!(running()))
         return;
 
     if (((!m_isTargetOtherTabs) && (connection_id != m_homeId)) || ((m_isTargetOtherTabs) && (connection_id == m_homeId)))

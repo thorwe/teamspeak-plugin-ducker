@@ -3,7 +3,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QTextStream>
 #include "teamspeak/public_definitions.h"
-#include "core/module.h"
+#include "core/module_qt.h"
 #include "volume/volumes.h"
 #include "core/talkers.h"
 #include "core/ts_infodata_qt.h"
@@ -14,7 +14,7 @@
 
 #include <memory>
 
-class Ducker_Global : public Module, public InfoDataInterface, public ContextMenuInterface
+class Ducker_Global : public Module_Qt, public InfoDataInterface, public ContextMenuInterface
 {
     Q_OBJECT
     Q_INTERFACES(InfoDataInterface ContextMenuInterface)

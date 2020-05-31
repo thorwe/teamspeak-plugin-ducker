@@ -27,7 +27,6 @@ struct TS3Functions ts3Functions;
 std::unique_ptr<Plugin> plugin;
 
 /*
-#define PATH_BUFSIZE 512
 #define COMMAND_BUFSIZE 128
 //#define INFODATA_BUFSIZE 128
 #define SERVERINFO_BUFSIZE 256

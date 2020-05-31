@@ -62,7 +62,7 @@ void Plugin::on_client_move_moved(uint64 sch_id, anyID client_id, uint64 old_cha
 void Plugin::on_talk_status_changed(uint64 sch_id, int status, int is_received_whisper, anyID client_id, bool is_me)
 {
 	ducker_g->onTalkStatusChanged(sch_id, status, is_received_whisper, client_id, is_me);
-	if (!ducker_g->isRunning() || !ducker_g->isClientMusicBotRt(sch_id, client_id))
+    if (!ducker_g->running() || !ducker_g->isClientMusicBotRt(sch_id, client_id))
 		ducker_c->onTalkStatusChanged(sch_id, status, is_received_whisper, client_id, is_me);
 }
 

@@ -39,7 +39,7 @@ void Ducker_Global::setActive(bool val)
 
 bool Ducker_Global::onInfoDataChanged(uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &data)
 {
-    if (!isRunning())
+    if (!running())
         return false;
 
     auto dirty = false;
@@ -231,7 +231,7 @@ void Ducker_Global::onClientMoveEvent(uint64 connection_id, anyID client_id, uin
  */
 bool Ducker_Global::onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
 {
-    if (!(isRunning()))
+    if (!(running()))
         return false;
 
     auto samples_ = gsl::span<int16_t>{samples, static_cast<size_t>(frame_count * channels)};
@@ -322,7 +322,7 @@ void Ducker_Global::onTalkStatusChanged(uint64 connection_id, int status, bool i
 {
     Q_UNUSED(is_received_whisper);
 
-    if (is_me || !isRunning())
+    if (is_me || !running())
         return;
 
     if (m_duck_targets.isEmpty())
