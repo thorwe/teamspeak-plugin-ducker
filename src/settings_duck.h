@@ -32,7 +32,7 @@ signals:
     void settingsSave();
 
 public slots:
-    void onContextMenuEvent(uint64 server_connectionHandler_id, PluginMenuType type, int menu_item_id, uint64 selected_item_id);
+    void onContextMenuEvent(uint64 server_connection_handler_id, PluginMenuType type, int menu_item_id, uint64 selected_item_id);
     void onMenusInitialized();
 
 private slots:

@@ -32,7 +32,7 @@ void SettingsDuck::Init(Ducker_Global* ducker_G, Ducker_Channel* ducker_C)
     connect(this, &SettingsDuck::channelDuckerReverseSet, ducker_C, &Ducker_Channel::setDuckingReverse);
     connect(this, &SettingsDuck::channelDuckerDuckPSEnabledSet, ducker_C, &Ducker_Channel::setDuckPrioritySpeakers);
 
-    QSettings cfg(TSHelpers::GetFullConfigPath(), QSettings::IniFormat);
+    QSettings cfg(TSHelpers::GetPath(teamspeak::plugin::Path::PluginIni), QSettings::IniFormat);
 
     cfg.beginGroup("ducker_global");
     int size = cfg.beginReadArray("targets");
@@ -47,7 +47,7 @@ void SettingsDuck::Init(Ducker_Global* ducker_G, Ducker_Channel* ducker_C)
     cfg.endGroup();
 
     ducker_C->setEnabled(cfg.value("ducking_enabled",true).toBool());
-    ducker_C->setValue(cfg.value("ducking_value",-23.0f).toFloat());
+    ducker_C->setValue(cfg.value("ducking_value",-23.0F).toFloat());
     ducker_C->setDuckingReverse(cfg.value("ducking_reverse",false).toBool());
     ducker_C->setDuckPrioritySpeakers(cfg.value("ducking_PS",false).toBool());
 
@@ -70,10 +70,10 @@ void SettingsDuck::onContextMenuEvent(uint64 server_connection_handler_id, Plugi
             {
                 auto p_config = new Config_Ducking_Client(TSHelpers::GetMainWindow());  //has delete on close attribute
 
-                QSettings cfg(TSHelpers::GetFullConfigPath(), QSettings::IniFormat);
+                QSettings cfg(TSHelpers::GetPath(teamspeak::plugin::Path::PluginIni), QSettings::IniFormat);
                 cfg.beginGroup("ducker_global");
                 p_config->UpdateGlobalDuckerEnabled(cfg.value("enabled",true).toBool());
-                p_config->UpdateGlobalDuckerValue(cfg.value("value",-23.0f).toFloat());
+                p_config->UpdateGlobalDuckerValue(cfg.value("value",-23.0F).toFloat());
                 cfg.endGroup();
 
                 this->connect(p_config, &Config_Ducking_Client::globalDuckerEnabledSet, this, &SettingsDuck::globalDuckerEnabledSet);
@@ -91,7 +91,7 @@ void SettingsDuck::onContextMenuEvent(uint64 server_connection_handler_id, Plugi
             else
             {
                 auto p_config = new Config_Ducking_Tabs(TSHelpers::GetMainWindow());  //has delete on close attribute
-                QSettings cfg(TSHelpers::GetFullConfigPath(), QSettings::IniFormat);
+                QSettings cfg(TSHelpers::GetPath(teamspeak::plugin::Path::PluginIni), QSettings::IniFormat);
                 p_config->UpdateChannelDuckerEnabled(cfg.value("ducking_enabled", true).toBool());
                 p_config->UpdateChannelDuckerValue(cfg.value("ducking_value", -23.0).toFloat());
                 p_config->UpdateChannelDuckerReverse((cfg.value("ducking_reverse", false).toBool()) ? 1 : 0);
@@ -122,7 +122,7 @@ void SettingsDuck::onMenusInitialized()
 void SettingsDuck::saveSettings(int r)
 {
     Q_UNUSED(r);
-    QSettings cfg(TSHelpers::GetFullConfigPath(), QSettings::IniFormat);
+    QSettings cfg(TSHelpers::GetPath(teamspeak::plugin::Path::PluginIni), QSettings::IniFormat);
     if (mP_ducker_G)
     {
         cfg.beginGroup("ducker_global");

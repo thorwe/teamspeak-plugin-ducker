@@ -29,11 +29,11 @@ public:
     void ToggleMusicBot(uint64 connection_id, anyID client_id);
 
     // events forwarded from plugin.cpp
-    void onClientMoveEvent(uint64 connection_id, anyID client_id, uint64 oldChannelID, uint64 newChannelID, int visibility, anyID myID);
-    bool onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID client_id, short* samples, int sampleCount, int channels);
+    void onClientMoveEvent(uint64 connection_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id);
+    bool onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID client_id, short* samples, int frame_count, int channels);
     bool isClientMusicBot(uint64 connection_id, anyID client_id);
     bool isClientMusicBotRt(uint64 connection_id, anyID client_id);
-    void onTalkStatusChanged(uint64 connection_id, int status, bool isReceivedWhisper, anyID client_id, bool isMe);
+    void onTalkStatusChanged(uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me);
 
     bool isActive() { return m_active; }
     void setActive(bool); // for testing command, move to private later
@@ -43,7 +43,7 @@ public:
     bool onInfoDataChanged(uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &data);
 
 public slots:
-    void setValue(float newValue);
+    void setValue(float);
     void onContextMenuEvent(uint64 connection_id, PluginMenuType type, int menuItemID, uint64 selectedItemID);
 
     void onConnectStatusChanged(uint64 connection_id, int new_status, unsigned int error_number);

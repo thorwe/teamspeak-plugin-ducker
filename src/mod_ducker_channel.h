@@ -39,7 +39,7 @@ public:
     bool isDuckPrioritySpeakers() const;
 
     // events forwarded from plugin.cpp
-    void onClientMoveEvent(uint64 server_connection_handler_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id);
+    void onClientMoveEvent(uint64 connection_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id);
     void onEditPlaybackVoiceDataEvent(uint64 server_connection_handler_id, anyID client_id, short* samples, int frame_count, int channels);
 
     void setHomeId(uint64 server_connection_handler_id);
@@ -60,7 +60,7 @@ private:
 	Talkers& m_talkers;
     thorwe::volume::Volumes<DspVolumeDucker> m_vols;
 
-    DspVolumeDucker* AddDuckerVolume(uint64 server_connection_handler_id, anyID client_id);
+    DspVolumeDucker* AddDuckerVolume(uint64 connection_id, anyID client_id);
     void UpdateActive();
 
 signals:

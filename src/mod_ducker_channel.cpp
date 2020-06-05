@@ -161,12 +161,12 @@ void Ducker_Channel::setHomeId(uint64 connection_id)
     {
         auto list = map.values(oldHomeId);
         const auto set_blocked = !m_isTargetOtherTabs;
-        for (int i = 0; i<list.size(); ++i)
+        for (const auto entry : list)
         {
             m_vols.do_for([&set_blocked](DspVolumeDucker* volume)
             {
                 volume->set_duck_blocked(set_blocked);
-            }, oldHomeId, list[i]);
+            }, oldHomeId, entry);
         }
     }
 
@@ -174,12 +174,12 @@ void Ducker_Channel::setHomeId(uint64 connection_id)
     {
         auto list = map.values(m_homeId);
         const auto set_blocked = m_isTargetOtherTabs;
-        for (int i = 0; i<list.size(); ++i)
+        for (const auto entry : list)
         {
             m_vols.do_for([&set_blocked](DspVolumeDucker* volume)
             {
                 volume->set_duck_blocked(set_blocked);
-            }, oldHomeId, list[i]);
+            }, oldHomeId, entry);
         }
     }
 

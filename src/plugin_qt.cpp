@@ -7,7 +7,7 @@
 #include "settings_duck.h"
 
 const char* Plugin::kPluginName = "Ducker";
-const char* Plugin::kPluginVersion = "1.0";
+const char* Plugin::kPluginVersion = "1.0.1";
 const char* Plugin::kPluginAuthor = "Thorsten Weinz";
 const char* Plugin::kPluginDescription = "In ducking, the level of one audio signal is reduced by the presence of another signal.\n\nFeatures:\nReduce the volume of a specific client (e.g. a music bot) when someone else starts to talk\nReduce the volume of clients on a server when someone on another connected server starts to talk.\n";
 

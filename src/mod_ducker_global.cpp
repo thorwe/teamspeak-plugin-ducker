@@ -9,6 +9,8 @@
 #include <QtCore/QSettings>
 #include "core/ts_helpers_qt.h"
 
+#include <array>
+
 using namespace thorwe;
 
 Ducker_Global::Ducker_Global(Plugin_Base& plugin)
@@ -46,8 +48,8 @@ bool Ducker_Global::onInfoDataChanged(uint64 connection_id, uint64 id, PluginIte
     if (type == PLUGIN_CLIENT)
     {
 		auto plugin = qobject_cast<Plugin_Base*>(parent());
-		const auto kPluginId = plugin->id();
-        ts3Functions.setPluginMenuEnabled(kPluginId.c_str(), m_ContextMenuToggleMusicBot, (id != mine) ? 1 : 0);
+        const auto& plugin_id = plugin->id();
+        ts3Functions.setPluginMenuEnabled(plugin_id.c_str(), m_ContextMenuToggleMusicBot, (id != mine) ? 1 : 0);
 
         if ((id != mine) && isClientMusicBot(connection_id, static_cast<anyID>(id)))
         {
@@ -144,13 +146,13 @@ void Ducker_Global::ToggleMusicBot(uint64 connection_id, anyID client_id)
     }
     else
     {
-        char name[512];
-        if((error = ts3Functions.getClientDisplayName(connection_id, client_id, name, 512)) != ERROR_ok)
+        auto name = std::array<char, 512>();
+        if((error = ts3Functions.getClientDisplayName(connection_id, client_id, name.data(), 512)) != ERROR_ok)
         {
             Error("(ToggleMusicBot) Error getting client display name", connection_id, error);
             return;
         }
-        m_duck_targets.insert(uid, name);
+        m_duck_targets.insert(uid, name.data());
         UpdateActive();
         AddMusicBotVolume(connection_id, client_id);
     }
@@ -360,7 +362,7 @@ DspVolumeDucker* Ducker_Global::AddMusicBotVolume(uint64 connection_id, anyID cl
 
 void Ducker_Global::SaveDuckTargets()
 {
-    QSettings cfg(TSHelpers::GetFullConfigPath(), QSettings::IniFormat);
+    QSettings cfg(TSHelpers::GetPath(teamspeak::plugin::Path::PluginIni), QSettings::IniFormat);
     cfg.beginGroup(QStringLiteral("ducker_global"));
     const auto kOldSize = cfg.beginReadArray(QStringLiteral("targets"));
     cfg.endArray();
