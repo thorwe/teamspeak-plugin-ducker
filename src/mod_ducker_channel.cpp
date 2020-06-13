@@ -1,23 +1,21 @@
 #include "mod_ducker_channel.h"
 
-#include "teamspeak/public_errors.h"
-#include "teamspeak/public_errors_rare.h"
+#include "core/plugin_base.h"
+#include "core/ts_functions.h"
+#include "core/ts_helpers_qt.h"
+
 #include "teamspeak/public_definitions.h"
 #include "teamspeak/public_rare_definitions.h"
-#include "ts3_functions.h"
-
-#include "plugin.h"
-#include "core/plugin_base.h"
-#include "core/ts_helpers_qt.h"
 
 #include <gsl/span>
 
+using namespace com::teamspeak::pluginsdk;
 using namespace thorwe;
 
-Ducker_Channel::Ducker_Channel(Plugin_Base& plugin)
-	: m_talkers(plugin.talkers())
+Ducker_Channel::Ducker_Channel(Plugin_Base &plugin)
+    : m_talkers(plugin.talkers())
 {
-	setObjectName(QStringLiteral("ChannelDucker"));
+    setObjectName(QStringLiteral("ChannelDucker"));
     setParent(&plugin);
 }
 
@@ -42,42 +40,40 @@ void Ducker_Channel::onRunningStateChanged(bool value)
 {
     if (value)
     {
-        connect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Channel::onConnectStatusChanged, Qt::UniqueConnection);
+        connect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Channel::onConnectStatusChanged,
+                Qt::UniqueConnection);
 
-        uint64* servers;
-        if (ts3Functions.getServerConnectionHandlerList(&servers) == ERROR_ok)
+        const auto [error_connection_ids, connection_ids] = funcs::get_server_connection_handler_ids();
+        if (ts_errc::ok == error_connection_ids)
         {
-            for (auto server = servers; *server != (uint64)NULL; ++server)
+            for (const auto connection_id : connection_ids)
             {
-                int status;
-                if (ts3Functions.getConnectionStatus(*server, &status) != ERROR_ok)
+                const auto [error_connection_status, connection_status] =
+                funcs::get_connection_status(connection_id);
+                if (ts_errc::ok != error_connection_status)
                     continue;
 
-                if (status != STATUS_CONNECTION_ESTABLISHED)
+                if (STATUS_CONNECTION_ESTABLISHED != connection_status)
                     continue;
 
-                unsigned int error;
-
-                // Get My Id on this handler
-                anyID my_id;
-                if((error = ts3Functions.getClientID(*server, &my_id)) != ERROR_ok)
+                const auto [error_my_id, my_id] = funcs::get_client_id(connection_id);
+                if (ts_errc::ok != error_my_id)
                 {
-                    Error("onRunningStateChanged", *server, error);
+                    Error("onRunningStateChanged", connection_id, error_my_id);
                     continue;
                 }
 
-                // Get My channel on this handler
-                uint64 channel_id;
-                if((error = ts3Functions.getChannelOfClient(*server, my_id, &channel_id)) != ERROR_ok)
-                    Error("(onRunningStateChanged) Could not get channel of client.",*server,error);
+                const auto [error_my_channel_id, my_channel_id] =
+                funcs::get_channel_of_client(connection_id, my_id);
+                if (ts_errc::ok != error_my_channel_id)
+                {
+                    Error("(onRunningStateChanged) Could not get channel of client.", connection_id,
+                          error_my_channel_id);
+                }
                 else
-                    onClientMoveEvent(*server, my_id, 0, channel_id, RETAIN_VISIBILITY, my_id);
-
+                    onClientMoveEvent(connection_id, my_id, 0, my_channel_id, RETAIN_VISIBILITY, my_id);
             }
-            ts3Functions.freeMemory(servers);
-
-            //UpdateActive();   //?
-            m_talkers.DumpTalkStatusChanges(this, STATUS_TALKING); // Should work just fine?
+            m_talkers.DumpTalkStatusChanges(this, STATUS_TALKING);  // Should work just fine?
         }
     }
     else
@@ -86,7 +82,7 @@ void Ducker_Channel::onRunningStateChanged(bool value)
         setActive(false);
         m_vols.delete_items();
     }
-    Log(QString("enabled: %1").arg((value)?"true":"false"));
+    Log(QString("enabled: %1").arg((value) ? "true" : "false"));
 }
 
 //! Set the amount of the volume reduction in dezibel(dB)
@@ -101,10 +97,7 @@ void Ducker_Channel::setValue(float val)
 
     m_value = val;
     Log(QString("setValue: %1").arg(m_value));
-    m_vols.do_for_each([val](DspVolumeDucker* volume) -> void
-    {
-        volume->set_gain_desired(val);
-    });
+    m_vols.do_for_each([val](DspVolumeDucker *volume) -> void { volume->set_gain_desired(val); });
 }
 
 void Ducker_Channel::setDuckingReverse(bool val)
@@ -113,12 +106,12 @@ void Ducker_Channel::setDuckingReverse(bool val)
         return;
 
     m_isTargetOtherTabs = val;
-    if (running())  //since everything needs to be re-evaluated might as well toggle off/on
+    if (running())  // since everything needs to be re-evaluated might as well toggle off/on
     {
-        onRunningStateChanged(false); //setEnabled would trigger signal
+        onRunningStateChanged(false);  // setEnabled would trigger signal
         onRunningStateChanged(true);
     }
-    Log(QString("isTargetOtherTabs: %1").arg((m_isTargetOtherTabs)?"true":"false"));
+    Log(QString("isTargetOtherTabs: %1").arg((m_isTargetOtherTabs) ? "true" : "false"));
 }
 
 void Ducker_Channel::setDuckPrioritySpeakers(bool val)
@@ -126,15 +119,15 @@ void Ducker_Channel::setDuckPrioritySpeakers(bool val)
     if (val == m_duck_priority_speakers)
         return;
 
-    if (running())  //since everything needs to be re-evaluated might as well toggle off/on
+    if (running())  // since everything needs to be re-evaluated might as well toggle off/on
     {
-        onRunningStateChanged(false); //setEnabled would trigger signal
+        onRunningStateChanged(false);  // setEnabled would trigger signal
         onRunningStateChanged(true);
     }
     m_duck_priority_speakers = val;
 }
 
-//void Ducker_Channel::saveSettings()
+// void Ducker_Channel::saveSettings()
 //{
 //    QSettings cfg(TSHelpers::GetFullConfigPath(), QSettings::IniFormat);
 //    cfg.setValue("ducking_enabled", isEnabled());
@@ -154,7 +147,7 @@ void Ducker_Channel::setHomeId(uint64 connection_id)
 
     UpdateActive();
     // Dump talk changes for new and old home id
-//    talkers->DumpTalkStatusChanges(this,STATUS_TALKING); //ToDo: ServerConnectionHandler specific dump
+    //    talkers->DumpTalkStatusChanges(this,STATUS_TALKING); //ToDo: ServerConnectionHandler specific dump
     // don't need no whisper or self talk here
     auto map = m_talkers.GetTalkerMap();
     if (map.contains(oldHomeId))
@@ -163,10 +156,12 @@ void Ducker_Channel::setHomeId(uint64 connection_id)
         const auto set_blocked = !m_isTargetOtherTabs;
         for (const auto entry : list)
         {
-            m_vols.do_for([&set_blocked](DspVolumeDucker* volume)
-            {
-                volume->set_duck_blocked(set_blocked);
-            }, oldHomeId, entry);
+            m_vols.do_for(
+            [&set_blocked](DspVolumeDucker *volume) {
+                if (volume)
+                    volume->set_duck_blocked(set_blocked);
+            },
+            oldHomeId, entry);
         }
     }
 
@@ -176,10 +171,12 @@ void Ducker_Channel::setHomeId(uint64 connection_id)
         const auto set_blocked = m_isTargetOtherTabs;
         for (const auto entry : list)
         {
-            m_vols.do_for([&set_blocked](DspVolumeDucker* volume)
-            {
-                volume->set_duck_blocked(set_blocked);
-            }, oldHomeId, entry);
+            m_vols.do_for(
+            [&set_blocked](DspVolumeDucker *volume) {
+                if (volume)
+                    volume->set_duck_blocked(set_blocked);
+            },
+            oldHomeId, entry);
         }
     }
 
@@ -192,65 +189,69 @@ void Ducker_Channel::setActive(bool val)
         return;
 
     m_isActive = val;
-    m_vols.do_for_each([val](DspVolumeDucker* volume)
-    {
-        volume->set_gain_adjustment(val);
-    });
+    m_vols.do_for_each([val](DspVolumeDucker *volume) { volume->set_gain_adjustment(val); });
 }
 
 // ts event handlers
 
 //! Have a volume object for everyone in the clients channel
-void Ducker_Channel::onClientMoveEvent(uint64 connection_id, anyID client_id, uint64 oldChannelID, uint64 newChannelID, int visibility, anyID myID)
+void Ducker_Channel::onClientMoveEvent(uint64 connection_id,
+                                       anyID client_id,
+                                       uint64 old_channel_id,
+                                       uint64 new_channel_id,
+                                       int visibility,
+                                       anyID my_id)
 {
     Q_UNUSED(visibility);
 
-    unsigned int error;
-
-    if (client_id == myID)                   // I have switched channels
+    if (client_id == my_id)  // I have switched channels
     {
-//        if (visibility == ENTER_VISIBILITY)  // those are direct from connect status change, filter those out to only use from setHomeId (and normal ones)
-//            return;
+        //        if (visibility == ENTER_VISIBILITY)  // those are direct from connect status change, filter
+        //        those out to only use from setHomeId (and normal ones)
+        //            return;
 
-//        if ((oldChannelID == 0)  && (visibility == RETAIN_VISIBILITY)) // -> setHomeId clientMove
-//            return;
+        //        if ((oldChannelID == 0)  && (visibility == RETAIN_VISIBILITY)) // -> setHomeId clientMove
+        //            return;
 
-//        Log("Refreshing volumes",LogLevel_DEBUG);
+        //        Log("Refreshing volumes",LogLevel_DEBUG);
         m_vols.delete_items(connection_id);
 
-        // Get Channel Client List
-        anyID* clients;
-        if ((error = ts3Functions.getChannelClientList(connection_id, newChannelID, &clients)) != ERROR_ok)
-            Error("(onClientMoveEvent) Error getting Channel Client List", connection_id, error);
+        const auto [error_channel_client_ids, channel_client_ids] =
+        funcs::get_channel_client_ids(connection_id, new_channel_id);
+        if (ts_errc::ok != error_channel_client_ids)
+            Error("(onClientMoveEvent) Error getting Channel Client List", connection_id,
+                  error_channel_client_ids);
         else
         {
             // for every client insert volume
-            for (int i = 0; clients[i]; i++)
+            for (const auto client_id : channel_client_ids)
             {
-                if (clients[i] == myID)
+                if (client_id == my_id)
                     continue;
 
-                AddDuckerVolume(connection_id,clients[i]);
+                AddDuckerVolume(connection_id, client_id);
             }
         }
     }
-    else                                    // Someone else has...
+    else  // Someone else has...
     {
-        // Get My channel on this handler
-        uint64 channelID;
-        if((error = ts3Functions.getChannelOfClient(connection_id, myID, &channelID)) != ERROR_ok)
-            Error(QString("(onClientMoveEvent) Error getting my Client Channel Id (client_id: %1)").arg(client_id), connection_id, error);
+        const auto [error_my_channel_id, my_channel_id] = funcs::get_channel_of_client(connection_id, my_id);
+        if (ts_errc::ok != error_my_channel_id)
+            Error(
+            QString("(onClientMoveEvent) Error getting my Client Channel Id (client_id: %1)").arg(client_id),
+            connection_id, error_my_channel_id);
         else
         {
-            if (channelID == oldChannelID)      // left
+            if (my_channel_id == old_channel_id)  // left
                 m_vols.delete_item(connection_id, client_id);
-            else if (channelID == newChannelID) // joined
+            else if (my_channel_id == new_channel_id)  // joined
                 AddDuckerVolume(connection_id, client_id);
         }
     }
 }
 
-bool Ducker_Channel::onTalkStatusChanged(uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
+bool Ducker_Channel::onTalkStatusChanged(
+uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
 {
     if (!running())
         return false;
@@ -261,7 +262,8 @@ bool Ducker_Channel::onTalkStatusChanged(uint64 connection_id, int status, bool 
     // Compute if this change causes a ducking change
     if ((!isActive()) && (status == STATUS_TALKING))
     {
-        if ((is_received_whisper) || (!m_isTargetOtherTabs && (connection_id != m_homeId)) || (m_isTargetOtherTabs && (connection_id == m_homeId)))
+        if ((is_received_whisper) || (!m_isTargetOtherTabs && (connection_id != m_homeId)) ||
+            (m_isTargetOtherTabs && (connection_id == m_homeId)))
             setActive(true);
     }
     else if (isActive() && (status == STATUS_NOT_TALKING))
@@ -272,20 +274,32 @@ bool Ducker_Channel::onTalkStatusChanged(uint64 connection_id, int status, bool 
 
     if (((status == STATUS_TALKING) || (status == STATUS_NOT_TALKING)))
     {
-        const auto is_trigger = (m_isTargetOtherTabs && (connection_id == m_homeId)) || (!m_isTargetOtherTabs && (connection_id != m_homeId));
+        const auto is_trigger = (m_isTargetOtherTabs && (connection_id == m_homeId)) ||
+                                (!m_isTargetOtherTabs && (connection_id != m_homeId));
 
-        //non ideal i guess
-        unsigned int error;
+        // non ideal i guess
         int is_priority_speaker_duck = 0;
-        if ((!m_duck_priority_speakers) && (status == STATUS_TALKING) && ((error = ts3Functions.getClientVariableAsInt(connection_id, client_id, CLIENT_IS_PRIORITY_SPEAKER, &is_priority_speaker_duck)) != ERROR_ok))
-            Error("(onTalkStatusChangeEvent)", connection_id, error);
-
-        m_vols.do_for([is_trigger, is_received_whisper, is_priority_speaker_duck, status](DspVolumeDucker* volume)
+        if ((!m_duck_priority_speakers) && (STATUS_TALKING == status))
         {
-            volume->set_duck_blocked(is_trigger || ((is_received_whisper || (is_priority_speaker_duck)) && (status == STATUS_TALKING)));
+            const auto [error_is_prio, is_prio] =
+            funcs::get_client_property_as_int(connection_id, client_id, CLIENT_IS_PRIORITY_SPEAKER);
+            if (ts_errc::ok != error_is_prio)
+                Error("(onTalkStatusChangeEvent)", connection_id, error_is_prio);
+            else
+                is_priority_speaker_duck = is_prio;
+        }
+
+        m_vols.do_for(
+        [is_trigger, is_received_whisper, is_priority_speaker_duck, status](DspVolumeDucker *volume) {
+            if (!volume)
+                return;
+
+            volume->set_duck_blocked(is_trigger || ((is_received_whisper || (is_priority_speaker_duck)) &&
+                                                    (status == STATUS_TALKING)));
             volume->set_processing(status == STATUS_TALKING);
-        }, connection_id, client_id);
-        
+        },
+        connection_id, client_id);
+
         return ((status == STATUS_TALKING) && !(is_received_whisper || is_priority_speaker_duck));
     }
     return false;
@@ -300,19 +314,25 @@ bool Ducker_Channel::onTalkStatusChanged(uint64 connection_id, int status, bool 
  * \param sampleCount amount of samples in the array
  * \param channels amount of channels
  */
-void Ducker_Channel::onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
+void Ducker_Channel::onEditPlaybackVoiceDataEvent(
+uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
 {
     if (!(running()))
         return;
 
-    if (((!m_isTargetOtherTabs) && (connection_id != m_homeId)) || ((m_isTargetOtherTabs) && (connection_id == m_homeId)))
+    if (((!m_isTargetOtherTabs) && (connection_id != m_homeId)) ||
+        ((m_isTargetOtherTabs) && (connection_id == m_homeId)))
         return;
 
     auto samples_ = gsl::span<int16_t>{samples, static_cast<size_t>(frame_count * channels)};
-    m_vols.do_for([samples_, channels](DspVolumeDucker* volume)
-    {
+    m_vols.do_for(
+    [samples_, channels](DspVolumeDucker *volume) {
+        if (!volume)
+            return;
+
         volume->process(samples_, channels);
-    }, connection_id, client_id);
+    },
+    connection_id, client_id);
 }
 
 //! Create and add a Volume object to the ServerChannelVolumes map
@@ -322,10 +342,10 @@ void Ducker_Channel::onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID cl
  * \param client_id the client id
  * \return a volume object
  */
-DspVolumeDucker* Ducker_Channel::AddDuckerVolume(uint64 connection_id, anyID client_id)
+DspVolumeDucker *Ducker_Channel::AddDuckerVolume(uint64 connection_id, anyID client_id)
 {
     auto result = m_vols.add_volume(connection_id, client_id);
-    auto* vol = result.first;
+    auto *vol = result.first;
     if (vol)
     {
         vol->set_gain_desired(m_value);
@@ -341,13 +361,13 @@ void Ducker_Channel::UpdateActive()
     if (m_isTargetOtherTabs && (m_talkers.isMeTalking() != 0))
         is_active = true;
     else if (!(m_talkers.GetWhisperMap().isEmpty()))
-        is_active=true;
+        is_active = true;
     else
     {
         if (m_isTargetOtherTabs)
         {
             if (m_talkers.GetTalkerMap().contains(m_homeId))
-                is_active=true;
+                is_active = true;
         }
         else
         {

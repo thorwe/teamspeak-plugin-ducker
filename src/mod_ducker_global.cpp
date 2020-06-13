@@ -1,22 +1,19 @@
 #include "mod_ducker_global.h"
 
-#include "teamspeak/public_errors.h"
-#include "teamspeak/public_errors_rare.h"
-#include "ts3_functions.h"
-
-#include "plugin.h"
-
-#include <QtCore/QSettings>
+#include "core/ts_functions.h"
 #include "core/ts_helpers_qt.h"
 
-#include <array>
+#include <QtCore/QSettings>
 
+#include <utility>
+
+using namespace com::teamspeak::pluginsdk;
 using namespace thorwe;
 
-Ducker_Global::Ducker_Global(Plugin_Base& plugin)
-	: m_talkers(plugin.talkers())
+Ducker_Global::Ducker_Global(Plugin_Base &plugin)
+    : m_talkers(plugin.talkers())
 {
-	setObjectName(QStringLiteral("GlobalDucker"));
+    setObjectName(QStringLiteral("GlobalDucker"));
     m_isPrintEnabled = false;
     setParent(&plugin);
 }
@@ -32,14 +29,12 @@ void Ducker_Global::setActive(bool val)
         return;
 
     m_active = val;
-    //Log(QString("setActive: %1").arg((value)?"true":"false"),LogLevel_DEBUG);
-    m_vols.do_for_each([val](DspVolumeDucker* volume)
-    {
-        volume->set_gain_adjustment(val);
-    });
+    // Log(QString("setActive: %1").arg((value)?"true":"false"),LogLevel_DEBUG);
+    m_vols.do_for_each([val](DspVolumeDucker *volume) { volume->set_gain_adjustment(val); });
 }
 
-bool Ducker_Global::onInfoDataChanged(uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &data)
+bool Ducker_Global::onInfoDataChanged(
+uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &data)
 {
     if (!running())
         return false;
@@ -47,9 +42,9 @@ bool Ducker_Global::onInfoDataChanged(uint64 connection_id, uint64 id, PluginIte
     auto dirty = false;
     if (type == PLUGIN_CLIENT)
     {
-		auto plugin = qobject_cast<Plugin_Base*>(parent());
-        const auto& plugin_id = plugin->id();
-        ts3Functions.setPluginMenuEnabled(plugin_id.c_str(), m_ContextMenuToggleMusicBot, (id != mine) ? 1 : 0);
+        auto plugin = qobject_cast<Plugin_Base *>(parent());
+        const auto &plugin_id = plugin->id();
+        funcs::set_plugin_menu_enabled(plugin_id, m_ContextMenuToggleMusicBot, (id != mine) ? 1 : 0);
 
         if ((id != mine) && isClientMusicBot(connection_id, static_cast<anyID>(id)))
         {
@@ -62,7 +57,10 @@ bool Ducker_Global::onInfoDataChanged(uint64 connection_id, uint64 id, PluginIte
     return dirty;
 }
 
-void Ducker_Global::onContextMenuEvent(uint64 connection_id, PluginMenuType type, int menu_item_id, uint64 selected_item_id)
+void Ducker_Global::onContextMenuEvent(uint64 connection_id,
+                                       PluginMenuType type,
+                                       int menu_item_id,
+                                       uint64 selected_item_id)
 {
     Q_UNUSED(type);
     if (menu_item_id == m_ContextMenuToggleMusicBot)
@@ -76,83 +74,82 @@ void Ducker_Global::onConnectStatusChanged(uint64 connection_id, int new_status,
 
 void Ducker_Global::AddMusicBot(uint64 connection_id, anyID client_id)
 {
-    int talking;
-    if (ts3Functions.getClientVariableAsInt(connection_id, client_id, CLIENT_FLAG_TALKING, &talking) == ERROR_ok)
+    const auto [error_talking, talking] =
+    funcs::get_client_property_as_int(connection_id, client_id, CLIENT_FLAG_TALKING);
+    if (ts_errc::ok != error_talking)
+        return;
+
+    const auto [error_my_id, my_id] = funcs::get_client_id(connection_id);
+    if (ts_errc::ok != error_my_id)
     {
-        unsigned int error;
+        Error("AddMusicBot", connection_id, error_my_id);
+        return;
+    }
 
-        // Get My Id on this handler
-        anyID my_id;
-        if ((error = ts3Functions.getClientID(connection_id, &my_id)) != ERROR_ok)
-        {
-            Error("AddMusicBot", connection_id, error);
-            return;
-        }
+    const auto [error_my_channel_id, my_channel_id] = funcs::get_channel_of_client(connection_id, my_id);
+    if (ts_errc::ok != error_my_channel_id)
+    {
+        Error("(AddMusicBot) Error getting Client Channel Id", connection_id, error_my_channel_id);
+        return;
+    }
 
-        // Get My channel on this handler
-        uint64 my_channel_id;
-        if ((error = ts3Functions.getChannelOfClient(connection_id, my_id, &my_channel_id)) != ERROR_ok)
-            Error("(AddMusicBot) Error getting Client Channel Id", connection_id, error);
-        else
-        {
-            uint64 channel_id;
-            if ((error = ts3Functions.getChannelOfClient(connection_id, client_id, &channel_id)) != ERROR_ok)
-                Error("(AddMusicBot) Error getting Client Channel Id", connection_id, error);
-            else
-            {
-                if (channel_id != my_channel_id)
-                    return;
+    const auto [error_target_channel_id, target_channel_id] =
+    funcs::get_channel_of_client(connection_id, client_id);
+    if (ts_errc::ok != error_target_channel_id)
+    {
+        Error("(AddMusicBot) Error getting Client Channel Id", connection_id, error_target_channel_id);
+        return;
+    }
 
-                auto* vol = AddMusicBotVolume(connection_id, client_id);
-                if (vol)
-                {
-                    if ((talking == STATUS_TALKING) && (!isActive()))
-                        setActive(true);
+    if (target_channel_id != my_channel_id)
+        return;
 
-                    vol->set_processing(talking == STATUS_TALKING);
-                }
-            }
-        }
+    auto *vol = AddMusicBotVolume(connection_id, client_id);
+    if (vol)
+    {
+        if ((STATUS_TALKING == talking) && (!isActive()))
+            setActive(true);
+
+        vol->set_processing(STATUS_TALKING == talking);
     }
 }
 
 void Ducker_Global::RemoveMusicBot(uint64 connection_id, anyID client_id)
 {
-    QString uid;
-    if (TSHelpers::GetClientUID(connection_id, client_id, uid) != ERROR_ok)
+    auto [error, result] =
+    funcs::get_client_property_as_string(connection_id, client_id, CLIENT_UNIQUE_IDENTIFIER);
+    if (ts_errc::ok != error)
         return;
 
-    m_duck_targets.remove(uid);
+    m_duck_targets.remove(std::move(result));
     m_vols.delete_item(connection_id, client_id);
 }
 
 void Ducker_Global::ToggleMusicBot(uint64 connection_id, anyID client_id)
 {
-    //Log(QString("(ToggleMusicBot) %1").arg(clientID),serverConnectionHandlerID,LogLevel_DEBUG);
-    unsigned int error;
-
-    QString uid;
-    if (TSHelpers::GetClientUID(connection_id, client_id, uid) != ERROR_ok)
+    auto [error_client_uid, client_uid] =
+    funcs::get_client_property_as_string(connection_id, client_id, CLIENT_UNIQUE_IDENTIFIER);
+    if (ts_errc::ok != error_client_uid)
     {
-        Error("(ToggleMusicBot)");
+        Error("(ToggleMusicBot)", connection_id, error_client_uid);
         return;
     }
 
-    if (m_duck_targets.contains(uid))
+    if (m_duck_targets.contains(client_uid))
     {
-        m_duck_targets.remove(uid);
+        m_duck_targets.remove(client_uid);
         UpdateActive();
         m_vols.delete_item(connection_id, client_id);
     }
     else
     {
-        auto name = std::array<char, 512>();
-        if((error = ts3Functions.getClientDisplayName(connection_id, client_id, name.data(), 512)) != ERROR_ok)
+        auto [error_display_name, display_name] = funcs::get_client_display_name(connection_id, client_id);
+        if (ts_errc::ok != error_display_name)
         {
-            Error("(ToggleMusicBot) Error getting client display name", connection_id, error);
+            Error("(ToggleMusicBot) Error getting client display name", connection_id, error_display_name);
             return;
         }
-        m_duck_targets.insert(uid, name.data());
+        m_duck_targets.insert(std::move(client_uid), std::move(display_name));
         UpdateActive();
         AddMusicBotVolume(connection_id, client_id);
     }
@@ -161,11 +158,15 @@ void Ducker_Global::ToggleMusicBot(uint64 connection_id, anyID client_id)
 
 bool Ducker_Global::isClientMusicBot(uint64 connection_id, anyID client_id)
 {
-    QString uid;
-    if (TSHelpers::GetClientUID(connection_id, client_id, uid) != ERROR_ok)
+    const auto [error_client_uid, client_uid] =
+    funcs::get_client_property_as_string(connection_id, client_id, CLIENT_UNIQUE_IDENTIFIER);
+    if (ts_errc::ok != error_client_uid)
+    {
+        Error("(isClientMusicBot)", connection_id, error_client_uid);
         return false;
+    }
 
-    return (m_duck_targets.contains(uid));
+    return (m_duck_targets.contains(client_uid));
 }
 
 bool Ducker_Global::isClientMusicBotRt(uint64 connection_id, anyID client_id)
@@ -173,46 +174,48 @@ bool Ducker_Global::isClientMusicBotRt(uint64 connection_id, anyID client_id)
     return m_vols.contains(connection_id, client_id);
 }
 
-void Ducker_Global::onClientMoveEvent(uint64 connection_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id)
+void Ducker_Global::onClientMoveEvent(uint64 connection_id,
+                                      anyID client_id,
+                                      uint64 old_channel_id,
+                                      uint64 new_channel_id,
+                                      int visibility,
+                                      anyID my_id)
 {
     Q_UNUSED(visibility);
 
-    unsigned int error;
-
-    if (client_id == my_id)                   // I have switched channels
+    if (client_id == my_id)  // I have switched channels
     {
         m_vols.delete_items(connection_id);
 
-        // Get Channel Client List
-        anyID* clients;
-        if((error = ts3Functions.getChannelClientList(connection_id, new_channel_id, &clients)) != ERROR_ok)
-            Error("(onClientMoveEvent): Error getting Channel Client List", connection_id, error);
+        const auto [error_channel_client_ids, channel_client_ids] =
+        funcs::get_channel_client_ids(connection_id, new_channel_id);
+        if (ts_errc::ok != error_channel_client_ids)
+            Error("(onClientMoveEvent): Error getting Channel Client List", connection_id,
+                  error_channel_client_ids);
         else
         {
-            // for every GDT client insert volume
-            for (int i = 0; clients[i]; i++)
+            for (const auto channel_client_id : channel_client_ids)
             {
-                if (clients[i] == my_id)
+                if (channel_client_id == my_id)
                     continue;
 
-                if (isClientMusicBot(connection_id, clients[i]))
-                    AddMusicBotVolume(connection_id, clients[i]);
+                if (isClientMusicBot(connection_id, channel_client_id))
+                    AddMusicBotVolume(connection_id, channel_client_id);
             }
         }
     }
-    else                                    // Someone else has...
+    else  // Someone else has...
     {
-        // Get My channel on this handler
-        uint64 channelID;
-        if ((error = ts3Functions.getChannelOfClient(connection_id, my_id, &channelID)) != ERROR_ok)
-            Error("(onClientMoveEvent) Error getting Client Channel Id", connection_id, error);
+        const auto [error_my_channel_id, my_channel_id] = funcs::get_channel_of_client(connection_id, my_id);
+        if (ts_errc::ok != error_my_channel_id)
+            Error("(onClientMoveEvent) Error getting Client Channel Id", connection_id, error_my_channel_id);
         else
         {
-            if (channelID == old_channel_id)      // left
+            if (my_channel_id == old_channel_id)  // left
             {
                 m_vols.delete_item(connection_id, client_id);
             }
-            else if (channelID == new_channel_id) // joined
+            else if (my_channel_id == new_channel_id)  // joined
             {
                 if (isClientMusicBot(connection_id, client_id))
                     AddMusicBotVolume(connection_id, client_id);
@@ -231,66 +234,71 @@ void Ducker_Global::onClientMoveEvent(uint64 connection_id, anyID client_id, uin
  * \param channels currently always 1 on TS3; unused
  * \return true, if the ducker has processed / the client is a music bot
  */
-bool Ducker_Global::onEditPlaybackVoiceDataEvent(uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
+bool Ducker_Global::onEditPlaybackVoiceDataEvent(
+uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
 {
     if (!(running()))
         return false;
 
     auto samples_ = gsl::span<int16_t>{samples, static_cast<size_t>(frame_count * channels)};
-    return m_vols.do_for([samples_, channels](DspVolumeDucker* volume) -> bool
-    {
+    return m_vols.do_for(
+    [samples_, channels](DspVolumeDucker *volume) -> bool {
+        if (!volume)
+            return false;
+
         volume->process(samples_, channels);
         return (volume->processing() && volume->gain_adjustment());
-    }, connection_id, client_id);
+    },
+    connection_id, client_id);
 }
 
 void Ducker_Global::onRunningStateChanged(bool value)
 {
     if (m_ContextMenuToggleMusicBot == -1)
     {
-		auto plugin = qobject_cast<Plugin_Base*>(parent());
-		auto& context_menu = plugin->context_menu();
-        m_ContextMenuToggleMusicBot = context_menu.Register(this, PLUGIN_MENU_TYPE_CLIENT, "Toggle Global Ducking Target", "duck_16.png");
-        connect(&context_menu, &TSContextMenu::FireContextMenuEvent, this, &Ducker_Global::onContextMenuEvent, Qt::AutoConnection);
+        auto plugin = qobject_cast<Plugin_Base *>(parent());
+        auto &context_menu = plugin->context_menu();
+        m_ContextMenuToggleMusicBot =
+        context_menu.Register(this, PLUGIN_MENU_TYPE_CLIENT, "Toggle Global Ducking Target", "duck_16.png");
+        connect(&context_menu, &TSContextMenu::FireContextMenuEvent, this, &Ducker_Global::onContextMenuEvent,
+                Qt::AutoConnection);
     }
 
     if (value)
     {
-        connect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Global::onConnectStatusChanged, Qt::UniqueConnection);
+        connect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Global::onConnectStatusChanged,
+                Qt::UniqueConnection);
 
-        uint64* servers;
-        if (ts3Functions.getServerConnectionHandlerList(&servers) == ERROR_ok)
+        const auto [error_connection_ids, connection_ids] = funcs::get_server_connection_handler_ids();
+        if (ts_errc::ok == error_connection_ids)
         {
-            for (auto server = servers; *server; ++server)
+            for (const auto connection_id : connection_ids)
             {
                 {
-                    int status;
-                    if (ts3Functions.getConnectionStatus(*server, &status) != ERROR_ok)
+                    const auto [error_connection_status, connection_status] =
+                    funcs::get_connection_status(connection_id);
+                    if (ts_errc::ok != error_connection_status)
                         continue;
 
-                    if (status != STATUS_CONNECTION_ESTABLISHED)
+                    if (STATUS_CONNECTION_ESTABLISHED != connection_status)
                         continue;
                 }
 
-                unsigned int error;
-
-                // Get My Id on this handler
-                anyID my_id;
-                if ((error = ts3Functions.getClientID(*server, &my_id)) != ERROR_ok)
+                const auto [error_my_id, my_id] = funcs::get_client_id(connection_id);
+                if (ts_errc::ok != error_my_id)
                 {
-                    Error("onRunningStateChanged",*server,error);
+                    Error("onRunningStateChanged", connection_id, error_my_id);
                     continue;
                 }
 
-                // Get My channel on this handler
-                uint64 channel_id;
-                if((error = ts3Functions.getChannelOfClient(*server, my_id, &channel_id)) != ERROR_ok)
-                    Error("(onRunningStateChanged) Could not get channel of client.", *server, error);
+                const auto [error_my_channel_id, my_channel_id] =
+                funcs::get_channel_of_client(connection_id, my_id);
+                if (ts_errc::ok != error_my_channel_id)
+                    Error("(onRunningStateChanged) Could not get channel of client.", connection_id,
+                          error_my_channel_id);
                 else
-                    onClientMoveEvent(*server, my_id, 0, channel_id, RETAIN_VISIBILITY, my_id);
-
+                    onClientMoveEvent(connection_id, my_id, 0, my_channel_id, RETAIN_VISIBILITY, my_id);
             }
-            ts3Functions.freeMemory(servers);
 
             UpdateActive();
         }
@@ -301,8 +309,8 @@ void Ducker_Global::onRunningStateChanged(bool value)
         setActive(false);
         m_vols.delete_items();
     }
-	auto plugin = qobject_cast<Plugin_Base*>(parent());
-	auto& info_data = plugin->info_data();
+    auto plugin = qobject_cast<Plugin_Base *>(parent());
+    auto &info_data = plugin->info_data();
     info_data.Register(this, value, 1);
     Log(QString("enabled: %1").arg((value) ? "true" : "false"));
 }
@@ -314,13 +322,11 @@ void Ducker_Global::setValue(float val)
 
     m_value = val;
     Log(QString("setValue: %1").arg(m_value));
-    m_vols.do_for_each([val](DspVolumeDucker* volume)
-    {
-        volume->set_gain_desired(val);
-    });
+    m_vols.do_for_each([val](DspVolumeDucker *volume) { volume->set_gain_desired(val); });
 }
 
-void Ducker_Global::onTalkStatusChanged(uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
+void Ducker_Global::onTalkStatusChanged(
+uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
 {
     Q_UNUSED(is_received_whisper);
 
@@ -341,17 +347,21 @@ void Ducker_Global::onTalkStatusChanged(uint64 connection_id, int status, bool i
 
     if ((status == STATUS_TALKING) || (status == STATUS_NOT_TALKING))
     {
-        m_vols.do_for([status](DspVolumeDucker* volume)
-        {
+        m_vols.do_for(
+        [status](DspVolumeDucker *volume) {
+            if (!volume)
+                return;
+
             volume->set_processing(status == STATUS_TALKING);
-        }, connection_id, client_id);
+        },
+        connection_id, client_id);
     }
 }
 
-DspVolumeDucker* Ducker_Global::AddMusicBotVolume(uint64 connection_id, anyID client_id)
+DspVolumeDucker *Ducker_Global::AddMusicBotVolume(uint64 connection_id, anyID client_id)
 {
     auto result = m_vols.add_volume(connection_id, client_id);
-    auto* vol = result.first;
+    auto *vol = result.first;
     if (vol)
     {
         vol->set_gain_desired(m_value);
@@ -367,14 +377,14 @@ void Ducker_Global::SaveDuckTargets()
     const auto kOldSize = cfg.beginReadArray(QStringLiteral("targets"));
     cfg.endArray();
     cfg.beginWriteArray(QStringLiteral("targets"), m_duck_targets.size());
-    QMapIterator<QString,QString> i(m_duck_targets);
+    QMapIterator<std::string, std::string> i(m_duck_targets);
     int count = 0;
     while (i.hasNext())
     {
         i.next();
         cfg.setArrayIndex(count);
-        cfg.setValue(QStringLiteral("uid"),i.key());
-        cfg.setValue(QStringLiteral("name"),i.value());
+        cfg.setValue(QStringLiteral("uid"), QString::fromStdString(i.key()));
+        cfg.setValue(QStringLiteral("name"), QString::fromStdString(i.value()));
         ++count;
     }
     if (kOldSize > m_duck_targets.size())
@@ -394,10 +404,10 @@ void Ducker_Global::UpdateActive()
 {
     auto is_active = false;
 
-    const auto& talkers = m_talkers.GetTalkerMap();
+    const auto &talkers = m_talkers.GetTalkerMap();
     for (auto it = talkers.cbegin(); it != talkers.cend(); ++it)
     {
-        if (!isClientMusicBotRt(it.key(),it.value()))
+        if (!isClientMusicBotRt(it.key(), it.value()))
         {
             is_active = true;
             break;
@@ -406,7 +416,7 @@ void Ducker_Global::UpdateActive()
 
     if (!is_active)
     {
-        const auto& whisperers = m_talkers.GetWhisperMap();
+        const auto &whisperers = m_talkers.GetWhisperMap();
         for (auto it = whisperers.cbegin(); it != whisperers.cend(); ++it)
         {
             if (!isClientMusicBotRt(it.key(), it.value()))

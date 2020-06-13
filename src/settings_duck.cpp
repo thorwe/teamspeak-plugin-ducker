@@ -2,9 +2,9 @@
 
 #include <QtCore/QSettings>
 
+#include "core/plugin_base.h"
 #include "core/ts_helpers_qt.h"
 #include "core/ts_logging_qt.h"
-#include "core/plugin_base.h"
 
 SettingsDuck::SettingsDuck(Plugin_Base* plugin)
 	: QObject(plugin)
@@ -39,7 +39,8 @@ void SettingsDuck::Init(Ducker_Global* ducker_G, Ducker_Channel* ducker_C)
     for (int i = 0; i < size; ++i)
     {
         cfg.setArrayIndex(i);
-        ducker_G->m_duck_targets.insert(cfg.value("uid").toString(),cfg.value("name").toString());
+        ducker_G->m_duck_targets.insert(cfg.value("uid").toString().toStdString(),
+                                        cfg.value("name").toString().toStdString());
     }
     cfg.endArray();
     ducker_G->setValue(cfg.value("value",-23.0f).toFloat());

@@ -1,10 +1,10 @@
 #include "config_ducking_tabs.h"
 
-#include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QApplication>
+#include <QtWidgets/QVBoxLayout>
 
 Config_Ducking_Tabs::Config_Ducking_Tabs(QWidget *parent) :
     QDialog(parent)

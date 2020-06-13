@@ -2,8 +2,8 @@
 
 #include "teamspeak/clientlib_publicdefinitions.h"
 
-#include "mod_ducker_global.h"
 #include "mod_ducker_channel.h"
+#include "mod_ducker_global.h"
 #include "settings_duck.h"
 
 const char* Plugin::kPluginName = "Ducker";

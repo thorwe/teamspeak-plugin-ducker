@@ -13,6 +13,7 @@
 #include "core/plugin_base.h"
 
 #include <memory>
+#include <string>
 
 class Ducker_Global : public Module_Qt, public InfoDataInterface, public ContextMenuInterface
 {
@@ -36,9 +37,9 @@ public:
     void onTalkStatusChanged(uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me);
 
     bool isActive() { return m_active; }
-    void setActive(bool); // for testing command, move to private later
+    void setActive(bool);  // for testing command, move to private later
 
-    QMap<QString,QString> m_duck_targets;
+    QMap<std::string, std::string> m_duck_targets;
 
     bool onInfoDataChanged(uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &data);
 

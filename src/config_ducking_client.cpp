@@ -1,8 +1,8 @@
 #include "config_ducking_client.h"
 
-#include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QGridLayout>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QVBoxLayout>
 
 Config_Ducking_Client::Config_Ducking_Client(QWidget *parent) :
     QDialog(parent)
