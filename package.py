@@ -6,7 +6,7 @@ import zipfile
 archs = ['32', '64']
 
 BUILD_PATH_PRE = "build-teamspeak-plugin-ducker-Desktop_Qt_5_12_8_MSVC2017_"
-BUILD_PATH_POST = "bit_using_2017_build_chain-RelWithDebInfo"
+BUILD_PATH_POST = "bit_2017-RelWithDebInfo"
 
 def copy_file(src, dest):
     try:
