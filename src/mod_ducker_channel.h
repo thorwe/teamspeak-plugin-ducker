@@ -15,23 +15,10 @@ class Ducker_Channel : public Module_Qt, public TalkInterface
 {
     Q_OBJECT
     Q_INTERFACES(TalkInterface)
-    Q_PROPERTY(bool isActive
-               READ isActive
-               WRITE setActive
-               NOTIFY activeSet)
-    Q_PROPERTY(float value
-               READ getValue
-               WRITE setValue
-               NOTIFY valueSet)
-    Q_PROPERTY(uint64 homeId
-               READ homeId
-               WRITE setHomeId)
-    Q_PROPERTY(bool targetOtherTabs
-               READ isTargetOtherTabs)
-    Q_PROPERTY(bool duckPrioritySpeakers
-               READ isDuckPrioritySpeakers)
+    Q_PROPERTY(bool isActive READ isActive WRITE setActive NOTIFY activeSet)
+    Q_PROPERTY(float value READ getValue WRITE setValue NOTIFY valueSet)
 
-public:
+  public:
     explicit Ducker_Channel(Plugin_Base& plugin);
 
     float getValue() const;

@@ -40,9 +40,6 @@ void Ducker_Channel::onRunningStateChanged(bool value)
 {
     if (value)
     {
-        connect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Channel::onConnectStatusChanged,
-                Qt::UniqueConnection);
-
         const auto [error_connection_ids, connection_ids] = funcs::get_server_connection_handler_ids();
         if (ts_errc::ok == error_connection_ids)
         {
@@ -78,7 +75,6 @@ void Ducker_Channel::onRunningStateChanged(bool value)
     }
     else
     {
-        disconnect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Channel::onConnectStatusChanged);
         setActive(false);
         m_vols.delete_items();
     }
@@ -149,35 +145,24 @@ void Ducker_Channel::setHomeId(uint64 connection_id)
     // Dump talk changes for new and old home id
     //    talkers->DumpTalkStatusChanges(this,STATUS_TALKING); //ToDo: ServerConnectionHandler specific dump
     // don't need no whisper or self talk here
-    auto map = m_talkers.GetTalkerMap();
-    if (map.contains(oldHomeId))
     {
-        auto list = map.values(oldHomeId);
         const auto set_blocked = !m_isTargetOtherTabs;
-        for (const auto entry : list)
-        {
-            m_vols.do_for(
-            [&set_blocked](DspVolumeDucker *volume) {
-                if (volume)
-                    volume->set_duck_blocked(set_blocked);
-            },
-            oldHomeId, entry);
-        }
+        m_vols.do_for_each(
+        [&set_blocked](DspVolumeDucker *volume) {
+            if (volume)
+                volume->set_duck_blocked(set_blocked);
+        },
+        oldHomeId);
     }
 
-    if (map.contains(m_homeId))
     {
-        auto list = map.values(m_homeId);
         const auto set_blocked = m_isTargetOtherTabs;
-        for (const auto entry : list)
-        {
-            m_vols.do_for(
-            [&set_blocked](DspVolumeDucker *volume) {
-                if (volume)
-                    volume->set_duck_blocked(set_blocked);
-            },
-            oldHomeId, entry);
-        }
+        m_vols.do_for_each(
+        [&set_blocked](DspVolumeDucker *volume) {
+            if (volume)
+                volume->set_duck_blocked(set_blocked);
+        },
+        m_homeId);
     }
 
     Log(QString("setHomeId: %1").arg(m_homeId));
@@ -360,18 +345,19 @@ void Ducker_Channel::UpdateActive()
 
     if (m_isTargetOtherTabs && (m_talkers.isMeTalking() != 0))
         is_active = true;
-    else if (!(m_talkers.GetWhisperMap().isEmpty()))
+    else if (!(m_talkers.get_infos(Talkers::Talker_Type::Whisperers).empty()))
         is_active = true;
     else
     {
         if (m_isTargetOtherTabs)
         {
-            if (m_talkers.GetTalkerMap().contains(m_homeId))
+            if (!m_talkers.get_infos(Talkers::Talker_Type::Talkers, m_homeId).empty())
                 is_active = true;
         }
         else
         {
-            if (m_talkers.GetTalkerMap().count() != m_talkers.GetTalkerMap().count(m_homeId))
+            if (m_talkers.get_infos(Talkers::Talker_Type::Talkers).size() !=
+                m_talkers.get_infos(Talkers::Talker_Type::Talkers, m_homeId).size())
                 is_active = true;
         }
     }

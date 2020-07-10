@@ -6,6 +6,8 @@
 #include "core/ts_helpers_qt.h"
 #include "core/ts_logging_qt.h"
 
+static constexpr const float kDefaultDuckingValue = -23.F;
+
 SettingsDuck::SettingsDuck(Plugin_Base* plugin)
 	: QObject(plugin)
 {
@@ -43,14 +45,14 @@ void SettingsDuck::Init(Ducker_Global* ducker_G, Ducker_Channel* ducker_C)
                                         cfg.value("name").toString().toStdString());
     }
     cfg.endArray();
-    ducker_G->setValue(cfg.value("value",-23.0f).toFloat());
-    ducker_G->setEnabled(cfg.value("enabled",true).toBool());
+    ducker_G->setValue(cfg.value("value", kDefaultDuckingValue).toFloat());
+    ducker_G->setEnabled(cfg.value("enabled", true).toBool());
     cfg.endGroup();
 
-    ducker_C->setEnabled(cfg.value("ducking_enabled",true).toBool());
-    ducker_C->setValue(cfg.value("ducking_value",-23.0F).toFloat());
-    ducker_C->setDuckingReverse(cfg.value("ducking_reverse",false).toBool());
-    ducker_C->setDuckPrioritySpeakers(cfg.value("ducking_PS",false).toBool());
+    ducker_C->setEnabled(cfg.value("ducking_enabled", true).toBool());
+    ducker_C->setValue(cfg.value("ducking_value", kDefaultDuckingValue).toFloat());
+    ducker_C->setDuckingReverse(cfg.value("ducking_reverse", false).toBool());
+    ducker_C->setDuckPrioritySpeakers(cfg.value("ducking_PS", false).toBool());
 
     mP_ducker_G = ducker_G;
     mP_ducker_C = ducker_C;
@@ -69,43 +71,52 @@ void SettingsDuck::onContextMenuEvent(uint64 server_connection_handler_id, Plugi
                 m_config_client.data()->activateWindow();
             else
             {
-                auto p_config = new Config_Ducking_Client(TSHelpers::GetMainWindow());  //has delete on close attribute
+                // has delete on close attribute, and using QPointer doesn't need to be manually set to
+                // nullptr
+                m_config_client = new Config_Ducking_Client(TSHelpers::GetMainWindow());
 
                 QSettings cfg(TSHelpers::GetPath(teamspeak::plugin::Path::PluginIni), QSettings::IniFormat);
                 cfg.beginGroup("ducker_global");
-                p_config->UpdateGlobalDuckerEnabled(cfg.value("enabled",true).toBool());
-                p_config->UpdateGlobalDuckerValue(cfg.value("value",-23.0F).toFloat());
+                m_config_client->UpdateGlobalDuckerEnabled(cfg.value("enabled", true).toBool());
+                m_config_client->UpdateGlobalDuckerValue(cfg.value("value", kDefaultDuckingValue).toFloat());
                 cfg.endGroup();
 
-                this->connect(p_config, &Config_Ducking_Client::globalDuckerEnabledSet, this, &SettingsDuck::globalDuckerEnabledSet);
-                this->connect(p_config, &Config_Ducking_Client::globalDuckerValueChanged, this, &SettingsDuck::globalDuckerValueChanged);
+                this->connect(m_config_client, &Config_Ducking_Client::globalDuckerEnabledSet, this,
+                              &SettingsDuck::globalDuckerEnabledSet);
+                this->connect(m_config_client, &Config_Ducking_Client::globalDuckerValueChanged, this,
+                              &SettingsDuck::globalDuckerValueChanged);
 
-                connect(p_config, &Config_Ducking_Client::finished, this, &SettingsDuck::saveSettings);
-                p_config->show();
-                m_config_client = p_config;
+                connect(m_config_client, &Config_Ducking_Client::finished, this, &SettingsDuck::saveSettings);
+                m_config_client->show();
             }
         }
         else if (menu_item_id == m_context_menu_ui_tabs)
         {
-            if (m_config_client)
-                m_config_client.data()->activateWindow();
+            if (m_config_tabs)
+                m_config_tabs.data()->activateWindow();
             else
             {
-                auto p_config = new Config_Ducking_Tabs(TSHelpers::GetMainWindow());  //has delete on close attribute
+                // has delete on close attribute, and using QPointer doesn't need to be manually set to
+                // nullptr
+                m_config_tabs = new Config_Ducking_Tabs(TSHelpers::GetMainWindow());
                 QSettings cfg(TSHelpers::GetPath(teamspeak::plugin::Path::PluginIni), QSettings::IniFormat);
-                p_config->UpdateChannelDuckerEnabled(cfg.value("ducking_enabled", true).toBool());
-                p_config->UpdateChannelDuckerValue(cfg.value("ducking_value", -23.0).toFloat());
-                p_config->UpdateChannelDuckerReverse((cfg.value("ducking_reverse", false).toBool()) ? 1 : 0);
-                p_config->UpdateChannelDuckerDuckPSEnabled(cfg.value("ducking_PS", false).toBool());
+                m_config_tabs->UpdateChannelDuckerEnabled(cfg.value("ducking_enabled", true).toBool());
+                m_config_tabs->UpdateChannelDuckerValue(
+                cfg.value("ducking_value", kDefaultDuckingValue).toFloat());
+                m_config_tabs->UpdateChannelDuckerReverse((cfg.value("ducking_reverse", false).toBool()));
+                m_config_tabs->UpdateChannelDuckerDuckPSEnabled(cfg.value("ducking_PS", false).toBool());
 
-                this->connect(p_config, &Config_Ducking_Tabs::channelDuckerEnabledSet, this, &SettingsDuck::channelDuckerEnabledSet);
-                this->connect(p_config, &Config_Ducking_Tabs::channelDuckerValueChanged, this, &SettingsDuck::channelDuckerValueChanged);
-                this->connect(p_config, &Config_Ducking_Tabs::channelDuckerReverseSet, this, &SettingsDuck::channelDuckerReverseSet);
-                this->connect(p_config, &Config_Ducking_Tabs::channelDuckerDuckPSEnabledSet, this, &SettingsDuck::channelDuckerDuckPSEnabledSet);
+                this->connect(m_config_tabs, &Config_Ducking_Tabs::channelDuckerEnabledSet, this,
+                              &SettingsDuck::channelDuckerEnabledSet);
+                this->connect(m_config_tabs, &Config_Ducking_Tabs::channelDuckerValueChanged, this,
+                              &SettingsDuck::channelDuckerValueChanged);
+                this->connect(m_config_tabs, &Config_Ducking_Tabs::channelDuckerReverseSet, this,
+                              &SettingsDuck::channelDuckerReverseSet);
+                this->connect(m_config_tabs, &Config_Ducking_Tabs::channelDuckerDuckPSEnabledSet, this,
+                              &SettingsDuck::channelDuckerDuckPSEnabledSet);
 
-                connect(p_config, &Config_Ducking_Tabs::finished, this, &SettingsDuck::saveSettings);
-                p_config->show();
-                m_config_tabs = p_config;
+                connect(m_config_tabs, &Config_Ducking_Tabs::finished, this, &SettingsDuck::saveSettings);
+                m_config_tabs->show();
             }
         }
     }

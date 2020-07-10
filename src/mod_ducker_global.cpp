@@ -44,7 +44,7 @@ uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &
     {
         auto plugin = qobject_cast<Plugin_Base *>(parent());
         const auto &plugin_id = plugin->id();
-        funcs::set_plugin_menu_enabled(plugin_id, m_ContextMenuToggleMusicBot, (id != mine) ? 1 : 0);
+        funcs::set_plugin_menu_enabled(plugin_id, m_ContextMenuToggleMusicBot, id != mine);
 
         if ((id != mine) && isClientMusicBot(connection_id, static_cast<anyID>(id)))
         {
@@ -121,7 +121,7 @@ void Ducker_Global::RemoveMusicBot(uint64 connection_id, anyID client_id)
     if (ts_errc::ok != error)
         return;
 
-    m_duck_targets.remove(std::move(result));
+    m_duck_targets.remove(result);
     m_vols.delete_item(connection_id, client_id);
 }
 
@@ -149,7 +149,7 @@ void Ducker_Global::ToggleMusicBot(uint64 connection_id, anyID client_id)
             Error("(ToggleMusicBot) Error getting client display name", connection_id, error_display_name);
             return;
         }
-        m_duck_targets.insert(std::move(client_uid), std::move(display_name));
+        m_duck_targets.insert(client_uid, display_name);
         UpdateActive();
         AddMusicBotVolume(connection_id, client_id);
     }
@@ -266,9 +266,6 @@ void Ducker_Global::onRunningStateChanged(bool value)
 
     if (value)
     {
-        connect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Global::onConnectStatusChanged,
-                Qt::UniqueConnection);
-
         const auto [error_connection_ids, connection_ids] = funcs::get_server_connection_handler_ids();
         if (ts_errc::ok == error_connection_ids)
         {
@@ -305,7 +302,6 @@ void Ducker_Global::onRunningStateChanged(bool value)
     }
     else
     {
-        disconnect(&m_talkers, &Talkers::ConnectStatusChanged, this, &Ducker_Global::onConnectStatusChanged);
         setActive(false);
         m_vols.delete_items();
     }
@@ -404,27 +400,18 @@ void Ducker_Global::UpdateActive()
 {
     auto is_active = false;
 
-    const auto &talkers = m_talkers.GetTalkerMap();
-    for (auto it = talkers.cbegin(); it != talkers.cend(); ++it)
+    const auto speakers = m_talkers.get_infos(Talkers::Talker_Type::All);
+    if (auto it =
+        std::find_if(std::cbegin(speakers), std::cend(speakers),
+                     [this](const auto &talker_info) {
+                         if (talker_info.is_whispering)
+                             return !isClientMusicBotRt(talker_info.connection_id, talker_info.client_id);
+                         else
+                             return !isClientMusicBot(talker_info.connection_id, talker_info.client_id);
+                     });
+        it != std::cend(speakers))
     {
-        if (!isClientMusicBotRt(it.key(), it.value()))
-        {
-            is_active = true;
-            break;
-        }
-    }
-
-    if (!is_active)
-    {
-        const auto &whisperers = m_talkers.GetWhisperMap();
-        for (auto it = whisperers.cbegin(); it != whisperers.cend(); ++it)
-        {
-            if (!isClientMusicBotRt(it.key(), it.value()))
-            {
-                is_active = true;
-                break;
-            }
-        }
+        is_active = true;
     }
 
     setActive(is_active);

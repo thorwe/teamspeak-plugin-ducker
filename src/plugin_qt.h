@@ -25,8 +25,9 @@ public:
 	static const int kPluginOffersConfigure = PLUGIN_OFFERS_NO_CONFIGURE;
 
 	void on_current_server_connection_changed(uint64 sch_id) override;
+    void on_connect_status_changed(uint64 sch_id, int new_status, unsigned int error_number) override;
 
-	void on_client_move(uint64 sch_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id, const char* move_message) override;
+    void on_client_move(uint64 sch_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id, const char* move_message) override;
 	void on_client_move_timeout(uint64 sch_id, anyID client_id, uint64 old_channel_id, anyID my_id, const char* timeout_message) override;
 	void on_client_move_moved(uint64 sch_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id, anyID mover_id, const char* mover_name, const char* mover_unique_id, const char* move_message) override;
 

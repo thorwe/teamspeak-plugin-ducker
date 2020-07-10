@@ -32,7 +32,13 @@ int Plugin::initialize()
 
 void Plugin::on_current_server_connection_changed(uint64 sch_id)
 {
-	ducker_c->setHomeId(sch_id);
+    ducker_c->setHomeId(sch_id);
+}
+
+void Plugin::on_connect_status_changed(uint64 sch_id, int new_status, unsigned int error_number)
+{
+    ducker_g->onConnectStatusChanged(sch_id, new_status, error_number);
+    ducker_c->onConnectStatusChanged(sch_id, new_status, error_number);
 }
 
 void Plugin::on_client_move(uint64 sch_id, anyID client_id, uint64 old_channel_id, uint64 new_channel_id, int visibility, anyID my_id, const char * move_message)
