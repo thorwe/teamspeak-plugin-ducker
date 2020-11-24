@@ -13,13 +13,13 @@ Config_Ducking_Tabs::Config_Ducking_Tabs(QWidget *parent) :
     setWindowTitle(" ");
     setWindowFlags(this->windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
-    auto layout = new QVBoxLayout();
+    auto *layout = new QVBoxLayout();
 
-    auto label = new QLabel();
+    auto *label = new QLabel();
     label->setText("<strong>Server Tab Ducking</strong>");
     layout->addWidget(label, 0, Qt::AlignCenter);
 
-    auto line = new QFrame();
+    auto *line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
     layout->addWidget(line);
@@ -30,9 +30,9 @@ Config_Ducking_Tabs::Config_Ducking_Tabs(QWidget *parent) :
     connect(m_enabled_button, &QPushButton::toggled, this, &Config_Ducking_Tabs::channelDuckerEnabledSet);
     layout->addWidget(m_enabled_button, 0, Qt::AlignCenter);
 
-    auto cTargetLayout = new QGridLayout();
+    auto *cTargetLayout = new QGridLayout();
     auto text = QString("<strong>%1</strong>").arg(tr("Target:"));
-    auto cTargetLabel = new QLabel(text);
+    auto *cTargetLabel = new QLabel(text);
     cTargetLayout->addWidget(cTargetLabel, 0, 0, Qt::AlignCenter);
 
     m_radio_target_current = new QRadioButton(qApp->translate("HotkeyDialog","Current Server"));

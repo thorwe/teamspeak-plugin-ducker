@@ -11,13 +11,13 @@ Config_Ducking_Client::Config_Ducking_Client(QWidget *parent) :
     setWindowTitle(" ");
     setWindowFlags(this->windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
-    auto layout = new QVBoxLayout(this);
+    auto *layout = new QVBoxLayout(this);
 
-    auto label = new QLabel();
+    auto *label = new QLabel();
     label->setText("<strong>Client Ducking</strong>");
     layout->addWidget(label, 0, Qt::AlignCenter);
 
-    auto line = new QFrame();
+    auto *line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
     layout->addWidget(line);

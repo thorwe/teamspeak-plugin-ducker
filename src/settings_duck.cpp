@@ -18,8 +18,8 @@ void SettingsDuck::Init(Ducker_Global* ducker_G, Ducker_Channel* ducker_C)
 {
     if(m_context_menu_ui_client == -1)
     {
-		auto plugin = qobject_cast<Plugin_Base*>(parent());
-		auto& context_menu = plugin->context_menu();
+        auto *plugin = qobject_cast<Plugin_Base *>(parent());
+        auto& context_menu = plugin->context_menu();
         m_context_menu_ui_client = context_menu.Register(this, PLUGIN_MENU_TYPE_GLOBAL, "Clients", "");
         m_context_menu_ui_tabs = context_menu.Register(this, PLUGIN_MENU_TYPE_GLOBAL, "Server Tabs", "");
         connect(&context_menu, &TSContextMenu::MenusInitialized, this, &SettingsDuck::onMenusInitialized, Qt::AutoConnection);

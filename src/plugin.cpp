@@ -41,35 +41,35 @@ std::unique_ptr<Plugin> plugin;
 
 /* Unique name identifying this plugin */
 // call 2
-const char *ts3plugin_name()
+auto ts3plugin_name() -> const char *
 {
     return plugin->kPluginName;
 }
 
 /* Plugin version */
 // call 3
-const char *ts3plugin_version()
+auto ts3plugin_version() -> const char *
 {
     return plugin->kPluginVersion;
 }
 
 /* Plugin API version. Must be the same as the clients API major version, else the plugin fails to load. */
 // call 1
-int ts3plugin_apiVersion()
+auto ts3plugin_apiVersion() -> int
 {
     return plugin->kPluginApiVersion;
 }
 
 /* Plugin author */
 // call 4
-const char *ts3plugin_author()
+auto ts3plugin_author() -> const char *
 {
     return plugin->kPluginAuthor;
 }
 
 /* Plugin description */
 // call 5
-const char *ts3plugin_description()
+auto ts3plugin_description() -> const char *
 {
     return plugin->kPluginDescription;
 }
@@ -84,7 +84,7 @@ const char *ts3plugin_description()
  * Custom code called right after loading the plugin. Returns 0 on success, 1 on failure.
  * If the function returns 1 on failure, the plugin will be unloaded again.
  */
-int ts3plugin_init()
+auto ts3plugin_init() -> int
 {
     return plugin->init();
 }
@@ -116,7 +116,7 @@ void ts3plugin_shutdown()
 /* Tell client if plugin offers a configuration window. If this function is not implemented, it's an assumed
  * "does not offer" (PLUGIN_OFFERS_NO_CONFIGURE). */
 // call 6
-int ts3plugin_offersConfigure()
+auto ts3plugin_offersConfigure() -> int
 {
     return plugin->kPluginOffersConfigure;
 }
@@ -182,7 +182,7 @@ void ts3plugin_initMenus(struct PluginMenuItem ***menuItems, char **menuIcon)
  */
 
 /* Static title shown in the left column in the info frame */
-const char *ts3plugin_infoTitle()
+auto ts3plugin_infoTitle() -> const char *
 {
     return ts3plugin_name();
 }

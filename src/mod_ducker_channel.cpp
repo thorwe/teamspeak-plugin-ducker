@@ -19,17 +19,17 @@ Ducker_Channel::Ducker_Channel(Plugin_Base &plugin)
     setParent(&plugin);
 }
 
-float Ducker_Channel::getValue() const
+auto Ducker_Channel::getValue() const -> float
 {
     return m_value;
 }
 
-bool Ducker_Channel::isTargetOtherTabs() const
+auto Ducker_Channel::isTargetOtherTabs() const -> bool
 {
     return m_isTargetOtherTabs;
 }
 
-bool Ducker_Channel::isDuckPrioritySpeakers() const
+auto Ducker_Channel::isDuckPrioritySpeakers() const -> bool
 {
     return m_duck_priority_speakers;
 }
@@ -235,8 +235,8 @@ void Ducker_Channel::onClientMoveEvent(uint64 connection_id,
     }
 }
 
-bool Ducker_Channel::onTalkStatusChanged(
-uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me)
+auto Ducker_Channel::onTalkStatusChanged(
+uint64 connection_id, int status, bool is_received_whisper, anyID client_id, bool is_me) -> bool
 {
     if (!running())
         return false;
@@ -327,7 +327,7 @@ uint64 connection_id, anyID client_id, short *samples, int frame_count, int chan
  * \param client_id the client id
  * \return a volume object
  */
-DspVolumeDucker *Ducker_Channel::AddDuckerVolume(uint64 connection_id, anyID client_id)
+auto Ducker_Channel::AddDuckerVolume(uint64 connection_id, anyID client_id) -> DspVolumeDucker *
 {
     auto result = m_vols.add_volume(connection_id, client_id);
     auto *vol = result.first;

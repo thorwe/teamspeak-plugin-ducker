@@ -18,7 +18,7 @@ Ducker_Global::Ducker_Global(Plugin_Base &plugin)
     setParent(&plugin);
 }
 
-float Ducker_Global::getValue() const
+auto Ducker_Global::getValue() const -> float
 {
     return m_value;
 }
@@ -33,8 +33,8 @@ void Ducker_Global::setActive(bool val)
     m_vols.do_for_each([val](DspVolumeDucker *volume) { volume->set_gain_adjustment(val); });
 }
 
-bool Ducker_Global::onInfoDataChanged(
-uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &data)
+auto Ducker_Global::onInfoDataChanged(
+uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &data) -> bool
 {
     if (!running())
         return false;
@@ -42,7 +42,7 @@ uint64 connection_id, uint64 id, PluginItemType type, uint64 mine, QTextStream &
     auto dirty = false;
     if (type == PLUGIN_CLIENT)
     {
-        auto plugin = qobject_cast<Plugin_Base *>(parent());
+        auto *plugin = qobject_cast<Plugin_Base *>(parent());
         const auto &plugin_id = plugin->id();
         funcs::set_plugin_menu_enabled(plugin_id, m_ContextMenuToggleMusicBot, id != mine);
 
@@ -156,7 +156,7 @@ void Ducker_Global::ToggleMusicBot(uint64 connection_id, anyID client_id)
     SaveDuckTargets();
 }
 
-bool Ducker_Global::isClientMusicBot(uint64 connection_id, anyID client_id)
+auto Ducker_Global::isClientMusicBot(uint64 connection_id, anyID client_id) -> bool
 {
     const auto [error_client_uid, client_uid] =
     funcs::get_client_property_as_string(connection_id, client_id, CLIENT_UNIQUE_IDENTIFIER);
@@ -169,7 +169,7 @@ bool Ducker_Global::isClientMusicBot(uint64 connection_id, anyID client_id)
     return (m_duck_targets.contains(client_uid));
 }
 
-bool Ducker_Global::isClientMusicBotRt(uint64 connection_id, anyID client_id)
+auto Ducker_Global::isClientMusicBotRt(uint64 connection_id, anyID client_id) -> bool
 {
     return m_vols.contains(connection_id, client_id);
 }
@@ -234,8 +234,8 @@ void Ducker_Global::onClientMoveEvent(uint64 connection_id,
  * \param channels currently always 1 on TS3; unused
  * \return true, if the ducker has processed / the client is a music bot
  */
-bool Ducker_Global::onEditPlaybackVoiceDataEvent(
-uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels)
+auto Ducker_Global::onEditPlaybackVoiceDataEvent(
+uint64 connection_id, anyID client_id, short *samples, int frame_count, int channels) -> bool
 {
     if (!(running()))
         return false;
@@ -256,7 +256,7 @@ void Ducker_Global::onRunningStateChanged(bool value)
 {
     if (m_ContextMenuToggleMusicBot == -1)
     {
-        auto plugin = qobject_cast<Plugin_Base *>(parent());
+        auto *plugin = qobject_cast<Plugin_Base *>(parent());
         auto &context_menu = plugin->context_menu();
         m_ContextMenuToggleMusicBot =
         context_menu.Register(this, PLUGIN_MENU_TYPE_CLIENT, "Toggle Global Ducking Target", "duck_16.png");
@@ -305,7 +305,7 @@ void Ducker_Global::onRunningStateChanged(bool value)
         setActive(false);
         m_vols.delete_items();
     }
-    auto plugin = qobject_cast<Plugin_Base *>(parent());
+    auto *plugin = qobject_cast<Plugin_Base *>(parent());
     auto &info_data = plugin->info_data();
     info_data.Register(this, value, 1);
     Log(QString("enabled: %1").arg((value) ? "true" : "false"));
@@ -354,7 +354,7 @@ uint64 connection_id, int status, bool is_received_whisper, anyID client_id, boo
     }
 }
 
-DspVolumeDucker *Ducker_Global::AddMusicBotVolume(uint64 connection_id, anyID client_id)
+auto Ducker_Global::AddMusicBotVolume(uint64 connection_id, anyID client_id) -> DspVolumeDucker *
 {
     auto result = m_vols.add_volume(connection_id, client_id);
     auto *vol = result.first;

@@ -20,7 +20,7 @@ Plugin::Plugin(const char* plugin_id, QObject *parent)
 
 /* required functions */
 
-int Plugin::initialize()
+auto Plugin::initialize() -> int
 {
 	context_menu().setMainIcon("duck_16.png");
 	translator().update();
