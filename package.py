@@ -5,10 +5,11 @@ import zipfile
 
 archs = ['32', '64']
 
-BUILD_PATH_PRE = "build-teamspeak-plugin-ducker-Desktop_Qt_5_12_8_MSVC2017_"
+BUILD_PATH_PRE = "build-teamspeak-plugin-ducker-Desktop_Qt_5_12_10_MSVC2017_"
 BUILD_PATH_POST = "bit_2017-RelWithDebInfo"
 
 def copy_file(src, dest):
+    print("copying {0} to {1}".format(src, dest))
     try:
         shutil.copy(src, dest)
     # eg. src and dest are the same file
@@ -45,21 +46,21 @@ def compress(file_names, arch):
         zf.close()
 
 
-def updatePackageIni(packageIniPath, build_path):
+def updatePackageIni(packageIniPath, build_path, arch):
     copy_file(packageIniPath, build_path)
-    f = open(os.path.join(build_path, "package.ini"), "a")
     try:
-        f.write('Platforms = win{}\r\n'.format(arch))
-    except OSError:
+        with open(os.path.join(build_path, "package.ini"), "a") as f:
+            f.write('Platforms = win{}\r\n'.format(arch))
+    except:
         print("An error occurred")
-    finally:
-        # Don't forget to close the file!
-        f.close()
+
 
 
 for arch in archs:
+    print("--------------------")
+    print("Building arch {0}".format(arch))
     build_path = os.path.join("..", BUILD_PATH_PRE + arch + BUILD_PATH_POST)
-    updatePackageIni(os.path.join("res", "package.ini"), build_path)
+    updatePackageIni(os.path.join("res", "package.ini"), build_path, arch)
     file_names = {
         os.path.join(build_path, "package.ini"): "package.ini",
         os.path.join("res", "duck_16.png"): os.path.join("plugins", "ducker_plugin", "duck_16.png"),
